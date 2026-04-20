@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-display: "General Sans";
+    --font-body: "DM Sans";
+    --font-mono: "Geist Mono";
+    --radius: 0.625rem;
+
+    --background: 0.95 0 0;
+    --foreground: 0.15 0 0;
+    --card: 0.98 0 0;
+    --card-foreground: 0.12 0 0;
+    --popover: 0.99 0 0;
+    --popover-foreground: 0.12 0 0;
+
+    --primary: 0.38 0.08 260;
+    --primary-foreground: 0.98 0 0;
+
+    --secondary: 0.92 0 0;
+    --secondary-foreground: 0.25 0 0;
+    --muted: 0.88 0 0;
+    --muted-foreground: 0.45 0 0;
+
+    --accent: 0.67 0.18 200;
+    --accent-foreground: 0.98 0 0;
+
+    --destructive: 0.55 0.22 25;
+    --destructive-foreground: 0.98 0 0;
+
+    --border: 0.92 0 0;
+    --input: 0.92 0 0;
+    --ring: 0.38 0.08 260;
+
+    --chart-1: 0.67 0.18 200;
+    --chart-2: 0.6 0.15 270;
+    --chart-3: 0.72 0.12 45;
+    --chart-4: 0.55 0.1 0;
+    --chart-5: 0.65 0.08 260;
+
+    --sidebar: 0.97 0 0;
+    --sidebar-foreground: 0.15 0 0;
+    --sidebar-primary: 0.38 0.08 260;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.88 0 0;
+    --sidebar-accent-foreground: 0.25 0 0;
+    --sidebar-border: 0.92 0 0;
+    --sidebar-ring: 0.38 0.08 260;
+  }
+
+  .dark {
+    --background: 0.12 0 0;
+    --foreground: 0.93 0 0;
+    --card: 0.15 0 0;
+    --card-foreground: 0.92 0 0;
+    --popover: 0.18 0 0;
+    --popover-foreground: 0.92 0 0;
+
+    --primary: 0.7 0.1 260;
+    --primary-foreground: 0.12 0 0;
+
+    --secondary: 0.2 0 0;
+    --secondary-foreground: 0.88 0 0;
+    --muted: 0.22 0 0;
+    --muted-foreground: 0.58 0 0;
+
+    --accent: 0.72 0.2 200;
+    --accent-foreground: 0.12 0 0;
+
+    --destructive: 0.65 0.19 22;
+    --destructive-foreground: 0.12 0 0;
+
+    --border: 0.22 0 0;
+    --input: 0.22 0 0;
+    --ring: 0.7 0.1 260;
+
+    --chart-1: 0.72 0.2 200;
+    --chart-2: 0.65 0.15 270;
+    --chart-3: 0.75 0.14 45;
+    --chart-4: 0.58 0.12 0;
+    --chart-5: 0.68 0.1 260;
+
+    --sidebar: 0.15 0 0;
+    --sidebar-foreground: 0.93 0 0;
+    --sidebar-primary: 0.7 0.1 260;
+    --sidebar-primary-foreground: 0.12 0 0;
+    --sidebar-accent: 0.22 0 0;
+    --sidebar-accent-foreground: 0.88 0 0;
+    --sidebar-border: 0.22 0 0;
+    --sidebar-ring: 0.7 0.1 260;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+}
+
+@font-face {
+  font-family: "General Sans";
+  src: url("/assets/fonts/GeneralSans.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("/assets/fonts/DMSans.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/assets/fonts/GeistMono.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@layer utilities {
+  .transition-smooth {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .accent-line {
+    @apply border-l-2 border-accent;
+  }
+
+  .badge-category {
+    @apply inline-block px-2 py-1 text-xs font-medium rounded-sm bg-muted text-muted-foreground border-l-2 border-accent;
+  }
+
+  .card-elevated {
+    @apply bg-card shadow-md border border-border transition-smooth;
+  }
+
+  .card-hover {
+    @apply transition-smooth hover:shadow-md hover:border-border hover:-translate-y-0.5;
+  }
+
+  .card-hero {
+    @apply bg-card shadow-lg border border-border;
+  }
+
+  .metric-value {
+    @apply text-lg font-semibold text-foreground tabular-nums;
+  }
+
+  .article-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4;
+  }
+
+  .section-title {
+    @apply text-xl font-bold text-foreground mb-5 font-display;
+  }
+
+  .section-divider {
+    @apply border-t border-border pt-8 mt-2;
+  }
+
+  .interactive-hover {
+    @apply transition-smooth cursor-pointer;
+  }
+
+  .nav-link {
+    @apply flex items-center gap-2.5 px-3 py-2 rounded-sm text-sm font-medium transition-smooth text-muted-foreground;
+  }
+
+  .sidebar-panel {
+    @apply bg-card border-r border-border;
+  }
+
+  .page-container {
+    @apply px-4 sm:px-6 py-8 max-w-full;
+  }
+
+  .hero-section {
+    @apply bg-card border-b border-border px-4 sm:px-6 py-10 sm:py-14;
+  }
+
+  .feed-section {
+    @apply bg-background;
+  }
+
+  .alt-section {
+    @apply bg-muted;
+  }
+}

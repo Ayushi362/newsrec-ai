@@ -1,0 +1,104 @@
+type UserProfile = 
+ record {
+   createdAt: Timestamp;
+   displayName: text;
+   interests: vec text;
+   preferredCategories: vec text;
+   principalText: text;
+   readingHistory: vec ArticleId;
+   region: text;
+ };
+type UserId = text;
+type UpdateProfileRequest = 
+ record {
+   displayName: opt text;
+   interests: opt vec text;
+   preferredCategories: opt vec text;
+   region: opt text;
+ };
+type Timestamp = int;
+type SystemMetrics = 
+ record {
+   averageSimilarityScore: float64;
+   recommendationCoverage: float64;
+   totalArticles: nat;
+   totalInteractions: nat;
+   totalUsers: nat;
+ };
+type SubmitArticleResult = 
+ variant {
+   failure: record {reason: text;};
+   success: record {articleId: ArticleId;};
+ };
+type SubmitArticleRequest = 
+ record {
+   category: text;
+   content: text;
+   tags: vec text;
+   title: text;
+ };
+type SearchEntry = 
+ record {
+   searchTerm: text;
+   timestamp: Timestamp;
+ };
+type RecordInteractionRequest = 
+ record {
+   articleId: ArticleId;
+   interactionType: InteractionType;
+   userId: UserId;
+ };
+type RecommendationsResponse = 
+ record {
+   algorithmUsed: AlgorithmSource;
+   recommendations: vec RecommendationResult;
+ };
+type RecommendationResult = 
+ record {
+   algorithmSource: AlgorithmSource;
+   article: Article;
+   confidence: float64;
+   score: float64;
+ };
+type InteractionType = 
+ variant {
+   click;
+   like;
+ };
+type ArticleId = nat;
+type Article = 
+ record {
+   category: text;
+   content: text;
+   id: ArticleId;
+   termFrequencies: vec record {
+                          text;
+                          float64;
+                        };
+   title: text;
+ };
+type AlgorithmSource = 
+ variant {
+   collaborative;
+   contentBased;
+   hybrid;
+ };
+service : {
+  getArticleDetail: (articleId: ArticleId) -> (opt Article) query;
+  getArticleLikeCount: (articleId: ArticleId) -> (nat) query;
+  getArticles: () -> (vec Article) query;
+  getMetrics: () -> (SystemMetrics) query;
+  getRecommendations: (userId: UserId, algorithm: AlgorithmSource,
+   seedArticleId: opt ArticleId, topN: nat) ->
+   (RecommendationsResponse) query;
+  getSearchHistory: () -> (vec SearchEntry) query;
+  getTrendingArticles: (limit: opt nat) -> (vec Article) query;
+  getUserLikes: () -> (vec ArticleId) query;
+  getUserProfile: () -> (UserProfile);
+  recordInteraction: (req: RecordInteractionRequest) -> ();
+  recordProfileInteraction: (articleId: ArticleId) -> ();
+  searchArticles: (searchQuery: text, category: opt text) -> (vec Article);
+  submitArticle: (req: SubmitArticleRequest) -> (SubmitArticleResult);
+  toggleArticleLike: (articleId: ArticleId) -> (nat);
+  updateUserProfile: (req: UpdateProfileRequest) -> (UserProfile);
+}

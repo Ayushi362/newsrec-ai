@@ -1,0 +1,24 @@
+{
+  "overview": "NewsRec AI is a full-stack AI-powered news recommendation platform with Internet Identity authentication, personalized feeds powered by TF-IDF and collaborative filtering, a modern Google News/YouTube-style UI, article search, and user-submitted article uploads with content validation.",
+  "features": [
+    "Internet Identity authentication with personalized user profiles",
+    "Personalized homepage with 3 dynamic sections: Recommended for You, Trending Now, Based on Your Interests",
+    "Hybrid recommendation engine using TF-IDF, cosine similarity, and collaborative filtering",
+    "Full-text and category-based search with search history",
+    "Article upload with real-time NLP validation and spam detection",
+    "Region-based and interest-based content personalization",
+    "Responsive Google News / YouTube-style card UI with sidebar navigation",
+    "Interaction tracking (likes, reads) that continuously updates recommendations"
+  ],
+  "category": "productivity",
+  "tags": [
+    "news",
+    "recommendations",
+    "ai",
+    "personalization",
+    "authentication",
+    "tfidf",
+    "collaborative-filtering"
+  ],
+  "last_updated": "2026-04-20T08:33:41.138Z"
+}

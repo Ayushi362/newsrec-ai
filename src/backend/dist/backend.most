@@ -1,0 +1,104 @@
+// Version: 1.0.0
+type ArticleId__278276269 = ArticleId__941247015;
+type ArticleId__305201740 = ArticleId__678690314;
+type ArticleId__678690314 = Nat;
+type ArticleId__941247015 = ArticleId__678690314;
+type Article__442112271 = Article__907131386;
+type Article__907131386 =
+  {
+    category : Text;
+    content : Text;
+    id : ArticleId__941247015;
+    termFrequencies : [(Text, Float)];
+    title : Text
+  };
+type Data__159895909<T> = {var count : Nat__490723111; elements : [var ?T]};
+type Data__791452850<K, V> =
+  {var count : Nat__490723111; kvs : [var ?(K, V)]};
+type InteractionType__545046217 = {#click; #like};
+type Internal__667636161<T> =
+  {children : [var ?Node__92254746<T>]; data : Data__159895909<T>};
+type Internal__8484328<K, V> =
+  {children : [var ?Node__46230540<K, V>]; data : Data__791452850<K, V>};
+type Leaf__520550824<T> = {data : Data__159895909<T>};
+type Leaf__809889148<K, V> = {data : Data__791452850<K, V>};
+type List__415060402<T> = List__790383201<T>;
+type List__790383201<T> =
+  {
+    var blockIndex : Nat__490723111;
+    var blocks : [var [var ?T]];
+    var elementIndex : Nat__490723111
+  };
+type Nat__490723111 = Nat__920180692;
+type Nat__920180692 = Nat;
+type Node__46230540<K, V> =
+  {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
+type Node__92254746<T> =
+  {#internal : Internal__667636161<T>; #leaf : Leaf__520550824<T>};
+type SearchEntry__984611293 =
+  {searchTerm : Text; timestamp : Timestamp__301639476};
+type Set__532252804<T> = Set__710576254<T>;
+type Set__710576254<T> =
+  {var root : Node__92254746<T>; var size : Nat__490723111};
+type Timestamp__301639476 = Int;
+type Timestamp__347506881 = Timestamp__301639476;
+type Timestamp__432409533 = Timestamp__301639476;
+type UserId__158757552 = Text;
+type UserId__341034462 = UserId__417763618;
+type UserId__417763618 = UserId__158757552;
+type UserInteraction__264395449 =
+  {
+    articleId : ArticleId__941247015;
+    interactionType : InteractionType__545046217;
+    timestamp : Timestamp__347506881;
+    userId : UserId__417763618
+  };
+type UserInteraction__294269361 = UserInteraction__264395449;
+type UserProfile__190304746 =
+  {
+    createdAt : Timestamp__432409533;
+    displayName : Text;
+    interests : [Text];
+    preferredCategories : [Text];
+    principalText : Text;
+    readingHistory : [ArticleId__305201740];
+    region : Text
+  };
+type User__50510122 =
+  {id : UserId__417763618; interactedArticleIds : [ArticleId__941247015]};
+type User__810388003 = User__50510122;
+actor {
+  stable articles :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?Article__442112271]];
+      var elementIndex : Nat__490723111
+    };
+  stable interactions :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?UserInteraction__294269361]];
+      var elementIndex : Nat__490723111
+    };
+  stable likes :
+    {
+      var root : Node__46230540<ArticleId__278276269, Set__532252804<Text>>;
+      var size : Nat__490723111
+    };
+  stable nextArticleId : {var value : Nat};
+  stable profiles :
+    {
+      var root : Node__46230540<Text, UserProfile__190304746>;
+      var size : Nat__490723111
+    };
+  stable searchHistory :
+    {
+      var root : Node__46230540<Text, List__415060402<SearchEntry__984611293>>;
+      var size : Nat__490723111
+    };
+  stable users :
+    {
+      var root : Node__46230540<UserId__341034462, User__810388003>;
+      var size : Nat__490723111
+    }
+};
