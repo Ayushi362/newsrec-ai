@@ -1,19 +1,38 @@
-import { USER_IDS, type UserId } from "@/types";
-import { type ReactNode, createContext, useContext, useState } from "react";
+import { useStore } from "@/lib/store";
+import type { UserProfile } from "@/types";
+import { type ReactNode, createContext, useCallback, useContext } from "react";
 
 interface UserContextValue {
-  userId: UserId;
-  setUserId: (id: UserId) => void;
-  userIds: UserId[];
+  currentUser: UserProfile | undefined;
+  currentUserId: string;
+  allUsers: UserProfile[];
+  setCurrentUser: (userId: string) => void;
+  switchUser: (userId: string) => void;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [userId, setUserId] = useState<UserId>(USER_IDS[0]);
+  const { currentUserId, users, setCurrentUser } = useStore();
+  const currentUser = users.find((u) => u.id === currentUserId);
+
+  const switchUser = useCallback(
+    (userId: string) => {
+      setCurrentUser(userId);
+    },
+    [setCurrentUser],
+  );
 
   return (
-    <UserContext.Provider value={{ userId, setUserId, userIds: USER_IDS }}>
+    <UserContext.Provider
+      value={{
+        currentUser,
+        currentUserId,
+        allUsers: users,
+        setCurrentUser,
+        switchUser,
+      }}
+    >
       {children}
     </UserContext.Provider>
   );

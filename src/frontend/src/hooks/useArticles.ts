@@ -1,58 +1,43 @@
-import { createActor } from "@/backend";
-import type { Article, ArticleId } from "@/types";
-import { InteractionType } from "@/types";
-import { useActor } from "@caffeineai/core-infrastructure";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useStore } from "@/lib/store";
+import type { Article } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
 export function useArticles() {
-  const { actor, isFetching } = useActor(createActor);
+  const articles = useStore((s) => s.articles);
   return useQuery<Article[]>({
     queryKey: ["articles"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getArticles();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => articles,
+    staleTime: Number.POSITIVE_INFINITY,
   });
 }
 
-export function useArticleDetail(id: ArticleId | undefined) {
-  const { actor, isFetching } = useActor(createActor);
+export function useArticleDetail(id: string | undefined) {
+  const articles = useStore((s) => s.articles);
   return useQuery<Article | null>({
-    queryKey: ["article", id?.toString()],
+    queryKey: ["article", id],
     queryFn: async () => {
-      if (!actor || id === undefined) return null;
-      return actor.getArticleDetail(id);
+      if (!id) return null;
+      return articles.find((a) => a.id === id) ?? null;
     },
-    enabled: !!actor && !isFetching && id !== undefined,
+    enabled: !!id,
+    staleTime: Number.POSITIVE_INFINITY,
   });
 }
 
 export function useRecordInteraction() {
-  const { actor } = useActor(createActor);
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      userId,
-      articleId,
-      interactionType,
-    }: {
+  const { recordInteraction } = useStore();
+  return {
+    mutate: (params: {
       userId: string;
-      articleId: ArticleId;
-      interactionType: InteractionType;
+      articleId: string;
+      interactionType: "like" | "read" | "click" | "search";
     }) => {
-      if (!actor) throw new Error("Actor not ready");
-      // Default to click interaction type if not specified
-      const iType = interactionType ?? InteractionType.click;
-      return actor.recordInteraction({
-        userId,
-        articleId,
-        interactionType: iType,
-      });
+      recordInteraction(
+        params.userId,
+        params.articleId,
+        params.interactionType,
+      );
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["recommendations"] });
-      void queryClient.invalidateQueries({ queryKey: ["metrics"] });
-    },
-  });
+    isPending: false,
+  };
 }

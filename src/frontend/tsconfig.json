@@ -20,15 +20,13 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "node"],
     "paths": {
-      "declarations/*": ["../declarations/*"],
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "vite.config.ts"],
   "exclude": [
     "node_modules",
     "dist",
-    "build",
-    "*.config.js"
+    "build"
   ]
 }

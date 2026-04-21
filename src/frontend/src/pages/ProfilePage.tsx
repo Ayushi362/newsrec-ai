@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/context/AuthContext";
+import { useUser } from "@/context/UserContext";
 import { useArticles } from "@/hooks/useArticles";
 import { useLikes } from "@/hooks/useLikes";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -22,11 +22,9 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Clock,
   Edit2,
   Heart,
   ListOrdered,
-  Lock,
   MapPin,
   Star,
   Trash2,
@@ -34,18 +32,6 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-
-// ──────────────────────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────────────────────
-function formatDate(ts: bigint): string {
-  const ms = Number(ts / 1_000_000n);
-  return new Date(ms).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 function avatarColor(name: string): string {
   const palette = [
@@ -61,9 +47,6 @@ function avatarColor(name: string): string {
   return palette[Math.abs(hash) % palette.length];
 }
 
-// ──────────────────────────────────────────────────────────────
-// Sub-components
-// ──────────────────────────────────────────────────────────────
 function StatCard({
   icon,
   label,
@@ -89,91 +72,47 @@ function StatCard({
   );
 }
 
-// ──────────────────────────────────────────────────────────────
-// Sign-in gate
-// ──────────────────────────────────────────────────────────────
-function AuthGate({ login }: { login: () => void }) {
-  return (
-    <Layout showSidebar={false}>
-      <div
-        className="max-w-lg mx-auto px-4 py-28 flex flex-col items-center gap-6 text-center"
-        data-ocid="profile.auth_gate"
-      >
-        <div className="w-18 h-18 rounded-full bg-muted/40 border border-border/40 flex items-center justify-center p-5">
-          <Lock className="h-8 w-8 text-muted-foreground/60" />
-        </div>
-        <div>
-          <h2 className="font-display font-bold text-2xl text-foreground mb-2">
-            Sign in to view your profile
-          </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Your personalized reading history, preferences, and feed settings
-            are securely tied to your Internet Identity.
-          </p>
-        </div>
-        <Button
-          onClick={login}
-          size="lg"
-          className="gap-2 px-8"
-          data-ocid="profile.login_button"
-        >
-          Sign In with Internet Identity
-        </Button>
-      </div>
-    </Layout>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────
-// Main page
-// ──────────────────────────────────────────────────────────────
 export function ProfilePage() {
-  const { isAuthenticated, identity, login } = useAuth();
-  const { profile, isLoading, updateProfile, isUpdating } = useUserProfile();
+  const { currentUserId, currentUser } = useUser();
+  const { profile, isLoading, updateProfile, isUpdating } =
+    useUserProfile(currentUserId);
   const articlesQuery = useArticles();
   const articles = articlesQuery.data ?? [];
-  const { likedArticles } = useLikes();
+  const { likedArticles } = useLikes(currentUserId);
 
-  // ── form state ──
-  const [displayName, setDisplayName] = useState("");
+  const [displayName, setDisplayName] = useState(currentUser?.name ?? "");
   const [isEditingName, setIsEditingName] = useState(false);
-  const [region, setRegion] = useState("");
-  const [interests, setInterests] = useState<string[]>([]);
+  const [region, setRegion] = useState(currentUser?.region ?? "");
+  const [interests, setInterests] = useState<string[]>(
+    currentUser?.interests ?? [],
+  );
   const [feedPriorities, setFeedPriorities] = useState<string[]>([]);
-  const [localHistory, setLocalHistory] = useState<bigint[]>([]);
+  const [readHistory, setReadHistory] = useState<string[]>(
+    currentUser?.readHistory ?? [],
+  );
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // ── populate form when profile loads ──
   useEffect(() => {
     if (profile) {
-      setDisplayName(profile.displayName);
+      setDisplayName(profile.name);
       setRegion(profile.region);
       setInterests(profile.interests);
-      setFeedPriorities(profile.preferredCategories.slice(0, 3));
-      setLocalHistory([...profile.readingHistory].slice(0, 20));
+      setReadHistory(profile.readHistory);
     }
   }, [profile]);
 
-  // ── focus name input when entering edit mode ──
   useEffect(() => {
     if (isEditingName) nameInputRef.current?.focus();
   }, [isEditingName]);
 
-  if (!isAuthenticated) return <AuthGate login={login} />;
-
-  // ── helpers ──
-  const shortId = identity
-    ? `${identity.slice(0, 8)}…${identity.slice(-5)}`
-    : "";
   const initials = displayName
     ? displayName
         .split(" ")
         .map((w) => w[0]?.toUpperCase() ?? "")
         .slice(0, 2)
         .join("")
-    : "?";
+    : currentUserId.slice(0, 2).toUpperCase();
 
-  // ── interactions ──
   const toggleInterest = (cat: string) => {
     setInterests((prev) =>
       prev.includes(cat)
@@ -202,71 +141,34 @@ export function ProfilePage() {
     setFeedPriorities(next);
   };
 
-  const clearHistory = () => {
-    setLocalHistory([]);
-    updateProfile(
-      { preferredCategories: feedPriorities, interests },
-      {
-        onSuccess: () => toast.success("Reading history cleared."),
-        onError: () => toast.error("Failed to clear history."),
-      },
-    );
-  };
-
   const saveNameInline = () => {
     if (!displayName.trim()) {
       toast.error("Display name cannot be empty.");
       return;
     }
     setIsEditingName(false);
-    updateProfile(
-      { displayName: displayName.trim() },
-      {
-        onSuccess: () => toast.success("Display name updated!"),
-        onError: () => toast.error("Failed to update display name."),
-      },
-    );
+    updateProfile({ name: displayName.trim() });
+    toast.success("Display name updated!");
   };
 
   const saveRegion = () => {
-    updateProfile(
-      { region },
-      {
-        onSuccess: () => toast.success("Region updated!"),
-        onError: () => toast.error("Failed to update region."),
-      },
-    );
+    updateProfile({ region });
+    toast.success("Region updated!");
   };
 
   const saveInterests = () => {
-    updateProfile(
-      { interests },
-      {
-        onSuccess: () => toast.success("Interests saved!"),
-        onError: () => toast.error("Failed to save interests."),
-      },
-    );
+    updateProfile({ interests });
+    toast.success("Interests saved!");
   };
 
-  const saveFeedPriorities = () => {
-    updateProfile(
-      { preferredCategories: feedPriorities },
-      {
-        onSuccess: () => toast.success("Feed priorities saved!"),
-        onError: () => toast.error("Failed to save feed priorities."),
-      },
-    );
+  const clearHistory = () => {
+    setReadHistory([]);
+    toast.success("Reading history cleared.");
   };
 
-  // article lookup map for history
-  const articleMap = new Map(articles.map((a) => [a.id.toString(), a]));
-
-  // liked articles count — from useLikes hook
+  const articleMap = new Map(articles.map((a) => [a.id, a]));
   const likedCount = likedArticles.length;
 
-  // ──────────────────────────────────────────────────────────────
-  // Loading state
-  // ──────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <Layout showSidebar={false}>
@@ -286,9 +188,6 @@ export function ProfilePage() {
               <Skeleton key={i} className="h-20 rounded-lg" />
             ))}
           </div>
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
-          ))}
         </div>
       </Layout>
     );
@@ -300,19 +199,15 @@ export function ProfilePage() {
         className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-8"
         data-ocid="profile.page"
       >
-        {/* ── PROFILE HEADER ──────────────────────────────── */}
+        {/* Profile Header */}
         <div className="bg-card border border-border rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center gap-5">
-          {/* Avatar */}
           <div
-            className={`w-16 h-16 rounded-full flex items-center justify-center font-display font-bold text-xl shrink-0 ${avatarColor(displayName || "user")}`}
-            aria-label="Profile avatar"
+            className={`w-16 h-16 rounded-full flex items-center justify-center font-display font-bold text-xl shrink-0 ${avatarColor(displayName || currentUserId)}`}
           >
             {initials}
           </div>
 
-          {/* Name + meta */}
           <div className="flex-1 min-w-0">
-            {/* Inline editable name */}
             <div className="flex items-center gap-2 mb-1">
               {isEditingName ? (
                 <div className="flex items-center gap-2">
@@ -352,7 +247,7 @@ export function ProfilePage() {
               ) : (
                 <>
                   <h1 className="font-display font-bold text-2xl text-foreground truncate">
-                    {displayName || "Anonymous"}
+                    {displayName || currentUserId}
                   </h1>
                   <button
                     type="button"
@@ -368,7 +263,9 @@ export function ProfilePage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-mono">{shortId}</span>
+              <span className="font-mono text-muted-foreground/60">
+                {currentUserId}
+              </span>
               {region && (
                 <Badge
                   variant="outline"
@@ -379,17 +276,11 @@ export function ProfilePage() {
                   {region}
                 </Badge>
               )}
-              {profile?.createdAt && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Member since {formatDate(profile.createdAt)}
-                </span>
-              )}
             </div>
           </div>
         </div>
 
-        {/* ── STATS ROW ──────────────────────────────────── */}
+        {/* Stats Row */}
         <div
           className="grid grid-cols-3 gap-3"
           data-ocid="profile.stats_section"
@@ -397,7 +288,7 @@ export function ProfilePage() {
           <StatCard
             icon={<BookOpen className="h-3.5 w-3.5" />}
             label="Articles Read"
-            value={profile?.readingHistory.length ?? 0}
+            value={readHistory.length}
             ocid="profile.stat_read"
           />
           <StatCard
@@ -407,20 +298,14 @@ export function ProfilePage() {
             ocid="profile.stat_liked"
           />
           <StatCard
-            icon={<Clock className="h-3.5 w-3.5" />}
-            label="Member Since"
-            value={
-              profile?.createdAt
-                ? new Date(Number(profile.createdAt / 1_000_000n))
-                    .getFullYear()
-                    .toString()
-                : "—"
-            }
-            ocid="profile.stat_since"
+            icon={<Star className="h-3.5 w-3.5" />}
+            label="Interests"
+            value={interests.length}
+            ocid="profile.stat_interests"
           />
         </div>
 
-        {/* ── REGION ────────────────────────────────────── */}
+        {/* Region */}
         <section
           className="bg-card border border-border rounded-xl p-6 space-y-4"
           data-ocid="profile.region_section"
@@ -470,7 +355,7 @@ export function ProfilePage() {
           </div>
         </section>
 
-        {/* ── INTERESTS ──────────────────────────────────── */}
+        {/* Interests */}
         <section
           className="bg-card border border-border rounded-xl p-6 space-y-4"
           data-ocid="profile.interests_section"
@@ -490,7 +375,6 @@ export function ProfilePage() {
             Toggle topics you care about. Selecting up to 7 shapes your
             personalized feed.
           </p>
-
           <div
             className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"
             data-ocid="profile.interests_grid"
@@ -522,7 +406,6 @@ export function ProfilePage() {
               );
             })}
           </div>
-
           <div className="flex items-center gap-3 pt-2 border-t border-border/30">
             <Button
               size="sm"
@@ -535,7 +418,7 @@ export function ProfilePage() {
           </div>
         </section>
 
-        {/* ── FEED PRIORITIES ───────────────────────────── */}
+        {/* Feed Priorities */}
         <section
           className="bg-card border border-border rounded-xl p-6 space-y-4"
           data-ocid="profile.feed_priorities_section"
@@ -553,10 +436,9 @@ export function ProfilePage() {
           </div>
           <p className="text-xs text-muted-foreground">
             Choose up to 3 categories that get extra weight in your
-            recommendations. Use the arrows to set priority order.
+            recommendations.
           </p>
 
-          {/* Ordered list of selected priorities */}
           {feedPriorities.length > 0 && (
             <div
               className="flex flex-col gap-1.5 mb-3"
@@ -604,7 +486,7 @@ export function ProfilePage() {
                       type="button"
                       onClick={() => toggleFeedPriority(cat)}
                       className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-smooth"
-                      aria-label={`Remove ${cat} from priorities`}
+                      aria-label={`Remove ${cat}`}
                       data-ocid={`profile.priority_remove.${idx + 1}`}
                     >
                       <X className="h-3.5 w-3.5" />
@@ -615,7 +497,6 @@ export function ProfilePage() {
             </div>
           )}
 
-          {/* Category toggles */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {CATEGORIES.map((cat) => {
               const active = feedPriorities.includes(cat);
@@ -648,7 +529,7 @@ export function ProfilePage() {
           <div className="flex items-center gap-3 pt-2 border-t border-border/30">
             <Button
               size="sm"
-              onClick={saveFeedPriorities}
+              onClick={() => toast.success("Feed priorities saved!")}
               disabled={isUpdating}
               data-ocid="profile.save_priorities_button"
             >
@@ -657,7 +538,7 @@ export function ProfilePage() {
           </div>
         </section>
 
-        {/* ── READING HISTORY ───────────────────────────── */}
+        {/* Reading History */}
         <section
           className="bg-card border border-border rounded-xl p-6 space-y-4"
           data-ocid="profile.history_section"
@@ -669,25 +550,23 @@ export function ProfilePage() {
                 Reading History
               </h2>
               <Badge variant="secondary" className="text-xs">
-                {localHistory.length}
+                {readHistory.length}
               </Badge>
             </div>
-            {localHistory.length > 0 && (
+            {readHistory.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={clearHistory}
-                disabled={isUpdating}
                 className="gap-1.5 text-xs text-muted-foreground hover:text-destructive"
                 data-ocid="profile.clear_history_button"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                Clear History
+                <Trash2 className="h-3.5 w-3.5" /> Clear History
               </Button>
             )}
           </div>
 
-          {localHistory.length === 0 ? (
+          {readHistory.length === 0 ? (
             <div
               className="flex flex-col items-center gap-3 py-10 text-center"
               data-ocid="profile.history_empty_state"
@@ -707,12 +586,12 @@ export function ProfilePage() {
               className="flex flex-col divide-y divide-border/40"
               data-ocid="profile.history_list"
             >
-              {localHistory.map((id, idx) => {
-                const article = articleMap.get(id.toString());
+              {readHistory.map((id, idx) => {
+                const article = articleMap.get(id);
                 return (
                   <div
-                    key={id.toString()}
-                    className="flex items-center gap-3 py-3 group"
+                    key={id}
+                    className="flex items-center gap-3 py-3"
                     data-ocid={`profile.history_item.${idx + 1}`}
                   >
                     <span className="text-xs text-muted-foreground/60 font-mono w-5 shrink-0 tabular-nums">
@@ -722,24 +601,22 @@ export function ProfilePage() {
                       {article ? (
                         <Link
                           to="/articles/$id"
-                          params={{ id: id.toString() }}
+                          params={{ id }}
                           className="block group/link"
                           data-ocid={`profile.history_link.${idx + 1}`}
                         >
                           <span className="text-sm font-medium text-foreground group-hover/link:text-accent transition-smooth truncate block">
                             {article.title}
                           </span>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span
-                              className={`badge-category text-[10px] ${CATEGORY_COLORS[article.category] ?? ""}`}
-                            >
-                              {article.category}
-                            </span>
-                          </div>
+                          <span
+                            className={`badge-category text-[10px] ${CATEGORY_COLORS[article.category] ?? ""}`}
+                          >
+                            {article.category}
+                          </span>
                         </Link>
                       ) : (
                         <span className="text-sm text-muted-foreground">
-                          Article #{id.toString()}
+                          Article #{id}
                         </span>
                       )}
                     </div>
@@ -749,14 +626,6 @@ export function ProfilePage() {
             </div>
           )}
         </section>
-
-        {/* ── DANGER / ACCOUNT ─────────────────────────── */}
-        <div className="flex justify-end pb-4">
-          <p className="text-xs text-muted-foreground/60">
-            Profile data is stored on the Internet Computer, tied to your
-            identity.
-          </p>
-        </div>
       </div>
     </Layout>
   );

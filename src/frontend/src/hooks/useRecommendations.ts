@@ -1,34 +1,47 @@
-import { createActor } from "@/backend";
-import type { ArticleId, RecommendationsResponse } from "@/types";
-import { AlgorithmSource } from "@/types";
-import { useActor } from "@caffeineai/core-infrastructure";
+import {
+  collaborativeRecs,
+  contentBasedRecs,
+  hybridRecs,
+} from "@/lib/recommendationEngine";
+import { useStore } from "@/lib/store";
+import type { RecommendationResult } from "@/types";
 import { useQuery } from "@tanstack/react-query";
+
+type RecommendationMode = "hybrid" | "collaborative" | "contentBased";
 
 export function useRecommendations(
   userId: string,
-  algorithm: AlgorithmSource,
-  seedArticleId?: ArticleId,
+  mode: RecommendationMode = "hybrid",
+  seedArticleId?: string,
   topN = 6,
 ) {
-  const { actor, isFetching } = useActor(createActor);
-  const algValue = algorithm ?? AlgorithmSource.hybrid;
-  return useQuery<RecommendationsResponse>({
-    queryKey: [
-      "recommendations",
-      userId,
-      algValue,
-      seedArticleId?.toString(),
-      topN,
-    ],
+  return useQuery<RecommendationResult[]>({
+    queryKey: ["recommendations", userId, mode, seedArticleId, topN],
     queryFn: async () => {
-      if (!actor) return { algorithmUsed: algValue, recommendations: [] };
-      return actor.getRecommendations(
+      const state = useStore.getState();
+      const userProfile = state.users.find((u) => u.id === userId) ?? null;
+
+      if (mode === "collaborative") {
+        return collaborativeRecs(userId, state.users, state.articles, topN);
+      }
+
+      if (mode === "contentBased" && seedArticleId) {
+        const article = state.articles.find((a) => a.id === seedArticleId);
+        if (article) {
+          return contentBasedRecs(article, state.articles, userProfile, topN);
+        }
+      }
+
+      return hybridRecs(
         userId,
-        algValue,
         seedArticleId ?? null,
-        BigInt(topN),
+        state.users,
+        state.articles,
+        userProfile,
+        topN,
       );
     },
-    enabled: !!actor && !isFetching && !!userId,
+    enabled: !!userId,
+    staleTime: 30_000,
   });
 }

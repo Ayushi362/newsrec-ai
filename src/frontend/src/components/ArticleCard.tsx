@@ -1,16 +1,15 @@
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
+import { useUser } from "@/context/UserContext";
 import { useLikes } from "@/hooks/useLikes";
 import { type Article, CATEGORY_COLORS } from "@/types";
 import { useNavigate } from "@tanstack/react-router";
+import { formatDistanceToNow } from "date-fns";
 import { Clock, Heart } from "lucide-react";
 
 interface ArticleCardProps {
   article: Article;
   index?: number;
   onCardClick?: (article: Article) => void;
-  /** compact row style (used in recommendation sidebars) */
   compact?: boolean;
 }
 
@@ -20,43 +19,15 @@ function estimateReadTime(content: string): string {
   return `${mins} min read`;
 }
 
-function ArticleThumbnail({ category }: { category: string }) {
-  const GRADIENTS: Record<string, string> = {
-    Technology: "from-accent/30 to-accent/5",
-    Business: "from-chart-3/30 to-chart-3/5",
-    Health: "from-chart-5/30 to-chart-5/5",
-    Science: "from-chart-2/30 to-chart-2/5",
-    World: "from-muted/60 to-muted/20",
-    Sports: "from-primary/30 to-primary/5",
-    Entertainment: "from-chart-4/30 to-chart-4/5",
-    Finance: "from-chart-3/30 to-chart-3/5",
-    Politics: "from-chart-4/30 to-chart-4/5",
-  };
-  const gradient = GRADIENTS[category] ?? "from-muted/60 to-muted/20";
-  return (
-    <div
-      className={`shrink-0 rounded-sm bg-gradient-to-br ${gradient} flex items-center justify-center`}
-    >
-      <span className="text-2xl select-none" aria-hidden="true">
-        {category === "Technology"
-          ? "💻"
-          : category === "Business"
-            ? "📈"
-            : category === "Health"
-              ? "🏥"
-              : category === "Science"
-                ? "🔬"
-                : category === "Sports"
-                  ? "⚽"
-                  : category === "Entertainment"
-                    ? "🎬"
-                    : category === "World" || category === "World News"
-                      ? "🌍"
-                      : "📰"}
-      </span>
-    </div>
-  );
-}
+const CAT_ICONS: Record<string, string> = {
+  Technology: "💻",
+  Business: "📈",
+  Health: "🏥",
+  Science: "🔬",
+  Sports: "⚽",
+  Entertainment: "🎬",
+  Politics: "🏛️",
+};
 
 export function ArticleCard({
   article,
@@ -65,24 +36,24 @@ export function ArticleCard({
   compact = false,
 }: ArticleCardProps) {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-  const { isLiked, toggleLike, isToggling } = useLikes();
+  const { currentUserId } = useUser();
+  const { isLiked, toggleLike, isToggling } = useLikes(currentUserId);
   const liked = isLiked(article.id);
 
-  const preview = article.content.slice(0, compact ? 80 : 120).trimEnd();
+  const preview = article.content.slice(0, compact ? 80 : 140).trimEnd();
   const colorClass =
     CATEGORY_COLORS[article.category] ??
     "border-l-muted-foreground text-muted-foreground";
   const readTime = estimateReadTime(article.content);
+  const timeAgo = formatDistanceToNow(new Date(article.publishedAt), {
+    addSuffix: true,
+  });
 
   const handleClick = () => {
     if (onCardClick) {
       onCardClick(article);
     } else {
-      void navigate({
-        to: "/articles/$id",
-        params: { id: article.id.toString() },
-      });
+      void navigate({ to: "/articles/$id", params: { id: article.id } });
     }
   };
 
@@ -103,7 +74,17 @@ export function ArticleCard({
             : "article_card"
         }
       >
-        <ArticleThumbnail category={article.category} />
+        <div className="w-10 h-10 rounded-sm overflow-hidden shrink-0 bg-muted/40 flex items-center justify-center">
+          <img
+            src={article.imageUrl}
+            alt=""
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        </div>
         <div className="flex flex-col gap-1 min-w-0">
           <span
             className={`text-[9px] font-mono font-semibold uppercase tracking-wider border-l-2 pl-1 ${colorClass}`}
@@ -125,53 +106,51 @@ export function ArticleCard({
         index !== undefined ? `article_card.item.${index + 1}` : "article_card"
       }
     >
-      {/* Card body — click navigates */}
+      {/* Image */}
+      <div className="w-full h-40 overflow-hidden bg-muted/30">
+        <img
+          src={article.imageUrl}
+          alt={article.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          loading="lazy"
+        />
+      </div>
+
+      {/* Card body */}
       <button
         type="button"
-        className="w-full text-left flex gap-4 p-4 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-t-md"
+        className="w-full text-left flex flex-col gap-2 p-4 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={handleClick}
       >
-        {/* Thumbnail */}
-        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-sm overflow-hidden shrink-0">
-          <ArticleThumbnail category={article.category} />
-        </div>
-
-        {/* Content */}
-        <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-          <span
-            className={`inline-block w-fit px-2 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-wider border-l-2 bg-muted/40 rounded-sm ${colorClass}`}
-          >
-            {article.category}
-          </span>
-          <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-accent transition-colors font-display">
-            {article.title}
-          </h3>
-          <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
-            {preview}
-            {article.content.length > 120 ? "…" : ""}
-          </p>
-        </div>
+        <span
+          className={`inline-block w-fit px-2 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-wider border-l-2 bg-muted/40 rounded-sm ${colorClass}`}
+        >
+          {CAT_ICONS[article.category] ?? "📰"} {article.category}
+        </span>
+        <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-accent transition-colors font-display">
+          {article.title}
+        </h3>
+        <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+          {preview}
+          {article.content.length > 140 ? "…" : ""}
+        </p>
       </button>
 
       {/* Footer row */}
-      <div className="flex items-center justify-between px-4 pb-3 pt-1">
+      <div className="flex items-center justify-between px-4 pb-3 pt-0">
         <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono">
+          <span>{article.author}</span>
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {readTime}
           </span>
-          {article.termFrequencies.slice(0, 2).map(([term]) => (
-            <Badge
-              key={term}
-              variant="secondary"
-              className="text-[9px] font-mono px-1.5 py-0 h-4 rounded-sm bg-muted/60 border-0"
-            >
-              {term}
-            </Badge>
-          ))}
+          <span className="hidden sm:block">{timeAgo}</span>
         </div>
 
-        {isAuthenticated && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground font-mono">
+            {article.likeCount.toLocaleString()}
+          </span>
           <button
             type="button"
             onClick={handleLike}
@@ -188,7 +167,7 @@ export function ArticleCard({
               className={`h-3.5 w-3.5 transition-colors ${liked ? "fill-chart-4 text-chart-4" : "text-muted-foreground/50 hover:text-chart-4"}`}
             />
           </button>
-        )}
+        </div>
       </div>
     </div>
   );

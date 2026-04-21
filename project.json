@@ -1,24 +1,27 @@
 {
-  "overview": "NewsRec AI is a full-stack AI-powered news recommendation platform with Internet Identity authentication, personalized feeds powered by TF-IDF and collaborative filtering, a modern Google News/YouTube-style UI, article search, and user-submitted article uploads with content validation.",
+  "overview": "NewsRec AI is a standalone, client-side personalized news recommendation app built with React + Vite. It features a hybrid TF-IDF + collaborative filtering recommendation engine, multi-user demo switcher, Google News-style card layout, search, article upload, user profiles, and a metrics dashboard — all running in the browser with mock data, no backend required.",
   "features": [
-    "Internet Identity authentication with personalized user profiles",
-    "Personalized homepage with 3 dynamic sections: Recommended for You, Trending Now, Based on Your Interests",
-    "Hybrid recommendation engine using TF-IDF, cosine similarity, and collaborative filtering",
-    "Full-text and category-based search with search history",
-    "Article upload with real-time NLP validation and spam detection",
-    "Region-based and interest-based content personalization",
-    "Responsive Google News / YouTube-style card UI with sidebar navigation",
-    "Interaction tracking (likes, reads) that continuously updates recommendations"
+    "Personalized homepage with 3 feed sections: Recommended for You, Trending Now, Based on Your Interests",
+    "Hybrid recommendation engine: TF-IDF cosine similarity + collaborative filtering, all in-browser",
+    "Multi-user demo switcher (user1–user5) with distinct profiles, regions, and interests",
+    "Article interaction tracking — likes and reads update recommendations in real-time",
+    "Search by keyword and category, with results influencing future recommendations",
+    "News upload with keyword-based NLP validation",
+    "User profile page with region, interests, and reading history",
+    "Metrics dashboard with category charts, interaction trends, and regional distribution",
+    "Dark mode toggle with localStorage persistence",
+    "Responsive design for desktop, tablet, and mobile"
   ],
   "category": "productivity",
   "tags": [
     "news",
     "recommendations",
-    "ai",
+    "machine-learning",
+    "react",
+    "vite",
     "personalization",
-    "authentication",
-    "tfidf",
+    "tf-idf",
     "collaborative-filtering"
   ],
-  "last_updated": "2026-04-20T08:33:41.138Z"
+  "last_updated": "2026-04-21T11:04:21.399Z"
 }

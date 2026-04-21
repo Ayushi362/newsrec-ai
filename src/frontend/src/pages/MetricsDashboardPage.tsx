@@ -1,10 +1,9 @@
 import { ArticleCard } from "@/components/ArticleCard";
 import { Layout } from "@/components/Layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/context/AuthContext";
+import { useUser } from "@/context/UserContext";
 import { useMetrics } from "@/hooks/useMetrics";
 import { useRecommendations } from "@/hooks/useRecommendations";
-import { AlgorithmSource } from "@/types";
 import {
   Activity,
   BarChart3,
@@ -83,9 +82,9 @@ const ALGO_CARDS = [
     icon: Cpu,
     color: "border-accent/30 bg-accent/5",
     textColor: "text-accent",
-    desc: "Analyzes article text using TF-IDF vectorization, then measures cosine similarity between articles to surface semantically related content. Articles sharing rare key terms score higher.",
-    badge: "TF-IDF + Cosine Similarity",
-    step: [
+    desc: "Analyzes article text using TF-IDF vectorization, then measures cosine similarity to surface semantically related content. Articles sharing rare key terms score higher.",
+    badge: "TF-IDF + Cosine",
+    steps: [
       "Tokenize + stem text",
       "Build TF-IDF vectors",
       "Compute cosine similarity",
@@ -99,7 +98,7 @@ const ALGO_CARDS = [
     textColor: "text-primary",
     desc: "Builds a user-item interaction matrix from click and like events. Finds users with similar reading patterns and recommends articles those users engaged with.",
     badge: "User-Item Matrix",
-    step: [
+    steps: [
       "Record interactions",
       "Build user vectors",
       "Compute user similarity",
@@ -111,9 +110,9 @@ const ALGO_CARDS = [
     icon: Layers,
     color: "border-chart-3/30 bg-chart-3/5",
     textColor: "text-chart-3",
-    desc: "Blends content and collaborative signals with equal weighting (50/50). Addresses cold-start for new users via content signals while leveraging social proof as data grows.",
-    badge: "50/50 Blend",
-    step: [
+    desc: "Blends content (45%) and collaborative (35%) signals with a popularity boost (20%). Addresses cold-start for new users while leveraging social proof as data grows.",
+    badge: "Weighted Blend",
+    steps: [
       "Score both methods",
       "Normalize scores",
       "Weighted combination",
@@ -123,14 +122,12 @@ const ALGO_CARDS = [
 ] as const;
 
 export function MetricsDashboardPage() {
-  const { identity } = useAuth();
-  const userId = identity ?? "anonymous";
+  const { currentUserId } = useUser();
   const { data: metrics, isLoading, isError } = useMetrics();
 
-  // Get collaborative recommendations as "interaction history" proxy
   const { data: userRecs, isLoading: historyLoading } = useRecommendations(
-    userId,
-    AlgorithmSource.collaborative,
+    currentUserId,
+    "collaborative",
     undefined,
     8,
   );
@@ -151,7 +148,7 @@ export function MetricsDashboardPage() {
             label: "Total Users",
             value: metrics.totalUsers.toString(),
             description:
-              "Registered users tracked in the collaborative filtering model",
+              "Demo users tracked in the collaborative filtering model",
             icon: Users,
           },
           {
@@ -168,7 +165,7 @@ export function MetricsDashboardPage() {
             label: "Rec. Coverage",
             value: `${Math.round(metrics.recommendationCoverage * 100)}%`,
             description:
-              "Percentage of the article catalog that can be reached through recommendations",
+              "Percentage of the article catalog reachable through recommendations",
             icon: Percent,
           },
         ]
@@ -196,11 +193,9 @@ export function MetricsDashboardPage() {
               Live
             </span>
           </div>
-          <div className="shrink-0">
-            <span className="text-[10px] font-mono text-muted-foreground">
-              {userId !== "anonymous" ? `${userId.slice(0, 8)}…` : "Anonymous"}
-            </span>
-          </div>
+          <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+            {currentUserId}
+          </span>
         </div>
 
         {isLoading ? (
@@ -209,7 +204,7 @@ export function MetricsDashboardPage() {
             data-ocid="metrics.loading_state"
           >
             {Array.from({ length: 4 }).map((_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders
+              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
               <Skeleton key={i} className="h-32 rounded-md" />
             ))}
           </div>
@@ -222,14 +217,12 @@ export function MetricsDashboardPage() {
           </div>
         ) : (
           <>
-            {/* Metric cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {metricCards.map(({ key, ...card }, i) => (
                 <MetricCard key={key} {...card} index={i + 1} />
               ))}
             </div>
 
-            {/* Average similarity + coverage */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-card border border-border/50 rounded-md p-6 flex flex-col gap-4">
                 <div className="flex items-center gap-2">
@@ -241,8 +234,7 @@ export function MetricsDashboardPage() {
                 <SimilarityBar score={metrics?.averageSimilarityScore ?? 0} />
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
                   Measures how closely related recommended articles are on
-                  average, based on TF-IDF vector dot products. Closer to 100%
-                  means highly similar content.
+                  average, based on TF-IDF vector dot products.
                 </p>
               </div>
 
@@ -256,13 +248,12 @@ export function MetricsDashboardPage() {
                 <SimilarityBar score={metrics?.recommendationCoverage ?? 0} />
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
                   Fraction of the total article catalog that appears in at least
-                  one user's recommendation set. Higher coverage means broader
-                  discovery.
+                  one user's recommendation set.
                 </p>
               </div>
             </div>
 
-            {/* Algorithm explanation */}
+            {/* Algorithm breakdown */}
             <div>
               <h2 className="font-display font-semibold text-sm text-foreground mb-4">
                 Algorithm Breakdown
@@ -270,7 +261,7 @@ export function MetricsDashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {ALGO_CARDS.map(
                   (
-                    { title, icon: Icon, color, textColor, desc, badge, step },
+                    { title, icon: Icon, color, textColor, desc, badge, steps },
                     i,
                   ) => (
                     <div
@@ -297,7 +288,7 @@ export function MetricsDashboardPage() {
                         {desc}
                       </p>
                       <div className="flex flex-col gap-1 mt-auto">
-                        {step.map((s, si) => (
+                        {steps.map((s, si) => (
                           <div key={s} className="flex items-center gap-2">
                             <span
                               className={`text-[9px] font-mono tabular-nums font-bold ${textColor} opacity-60`}
@@ -321,10 +312,10 @@ export function MetricsDashboardPage() {
               <div className="flex items-center gap-2 mb-4">
                 <Activity className="h-4 w-4 text-muted-foreground" />
                 <h2 className="font-display font-semibold text-sm text-foreground">
-                  Interaction History
+                  Personalized For
                 </h2>
                 <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 border border-border/40 px-1.5 py-0.5 rounded-sm">
-                  {userId}
+                  {currentUserId}
                 </span>
               </div>
 
@@ -334,15 +325,15 @@ export function MetricsDashboardPage() {
                   data-ocid="user_history.loading_state"
                 >
                   {Array.from({ length: 4 }).map((_, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders
+                    // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
                     <Skeleton key={i} className="h-40 rounded-md" />
                   ))}
                 </div>
-              ) : userRecs?.recommendations.length ? (
+              ) : (userRecs ?? []).length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {userRecs.recommendations.map((result, i) => (
+                  {(userRecs ?? []).map((result, i) => (
                     <ArticleCard
-                      key={result.article.id.toString()}
+                      key={result.article.id}
                       article={result.article}
                       index={i}
                     />
@@ -356,8 +347,10 @@ export function MetricsDashboardPage() {
                   <Activity className="h-8 w-8 text-muted-foreground/30" />
                   <p className="text-xs text-muted-foreground text-center max-w-sm">
                     No interactions yet for{" "}
-                    <span className="font-mono text-foreground">{userId}</span>.
-                    Browse and read articles to build your profile.
+                    <span className="font-mono text-foreground">
+                      {currentUserId}
+                    </span>
+                    . Browse and read articles to build your profile.
                   </p>
                 </div>
               )}

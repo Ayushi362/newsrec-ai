@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/context/AuthContext";
+import { UserProvider } from "@/context/UserContext";
 import { ArticleBrowserPage } from "@/pages/ArticleBrowserPage";
 import { ArticleDetailPage } from "@/pages/ArticleDetailPage";
 import { MetricsDashboardPage } from "@/pages/MetricsDashboardPage";
@@ -13,10 +14,8 @@ import {
   createRouter,
 } from "@tanstack/react-router";
 
-// Root route
 const rootRoute = createRootRoute();
 
-// Child routes
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
@@ -77,8 +76,10 @@ declare module "@tanstack/react-router" {
 export default function App() {
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
-      <Toaster position="bottom-right" />
+      <UserProvider>
+        <RouterProvider router={router} />
+        <Toaster position="bottom-right" />
+      </UserProvider>
     </AuthProvider>
   );
 }

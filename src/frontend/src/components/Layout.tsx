@@ -1,30 +1,31 @@
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
   BarChart3,
   Home,
-  LogIn,
-  LogOut,
   Menu,
+  Moon,
   Newspaper,
   Search,
+  Sun,
   Upload,
   User,
   X,
   Zap,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { type ReactNode, useState } from "react";
 import { CategorySidebar } from "./CategorySidebar";
 import { SearchBar } from "./SearchBar";
+import { UserSwitcher } from "./UserSwitcher";
 
 const NAV_LINKS = [
-  { to: "/", label: "Home", icon: Home, authRequired: false },
-  { to: "/search", label: "Search", icon: Search, authRequired: false },
-  { to: "/metrics", label: "Metrics", icon: BarChart3, authRequired: false },
-  { to: "/upload", label: "Upload", icon: Upload, authRequired: true },
-  { to: "/profile", label: "Profile", icon: User, authRequired: true },
+  { to: "/", label: "Home", icon: Home },
+  { to: "/search", label: "Search", icon: Search },
+  { to: "/metrics", label: "Metrics", icon: BarChart3 },
+  { to: "/upload", label: "Upload", icon: Upload },
+  { to: "/profile", label: "Profile", icon: User },
 ] as const;
 
 interface LayoutProps {
@@ -41,16 +42,10 @@ export function Layout({
   showSidebar = true,
 }: LayoutProps) {
   const { pathname } = useLocation();
-  const { isAuthenticated, identity, login, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
 
-  const visibleLinks = NAV_LINKS.filter(
-    (l) => !l.authRequired || isAuthenticated,
-  );
-
-  const shortId = identity
-    ? `${identity.slice(0, 5)}…${identity.slice(-3)}`
-    : null;
+  const isDark = theme === "dark";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -66,9 +61,9 @@ export function Layout({
             data-ocid="layout.sidebar_toggle"
           >
             {sidebarOpen ? (
-              <X className="h-4.5 w-4.5" />
+              <X className="h-5 w-5" />
             ) : (
-              <Menu className="h-4.5 w-4.5" />
+              <Menu className="h-5 w-5" />
             )}
           </button>
 
@@ -91,38 +86,24 @@ export function Layout({
             <SearchBar />
           </div>
 
-          {/* Auth controls */}
-          <div className="flex items-center gap-2 shrink-0">
-            {isAuthenticated ? (
-              <>
-                <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-muted/40 border border-border/40 rounded-sm">
-                  <div className="w-2 h-2 rounded-full bg-accent" />
-                  <span className="text-[11px] font-mono text-muted-foreground">
-                    {shortId}
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={logout}
-                  className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                  data-ocid="layout.logout_button"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                  <span className="hidden sm:block">Sign Out</span>
-                </Button>
-              </>
+          {/* Dark mode toggle */}
+          <button
+            type="button"
+            className="shrink-0 p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-smooth"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            data-ocid="layout.theme_toggle"
+          >
+            {isDark ? (
+              <Sun className="h-4 w-4" />
             ) : (
-              <Button
-                size="sm"
-                onClick={login}
-                className="gap-1.5 text-xs bg-accent text-accent-foreground hover:bg-accent/90"
-                data-ocid="layout.login_button"
-              >
-                <LogIn className="h-3.5 w-3.5" />
-                Sign In
-              </Button>
+              <Moon className="h-4 w-4" />
             )}
+          </button>
+
+          {/* User switcher */}
+          <div className="shrink-0">
+            <UserSwitcher />
           </div>
         </div>
       </header>
@@ -142,7 +123,7 @@ export function Layout({
             className="flex flex-col gap-0.5 p-3 pt-4"
             aria-label="Main navigation"
           >
-            {visibleLinks.map(({ to, label, icon: Icon }) => {
+            {NAV_LINKS.map(({ to, label, icon: Icon }) => {
               const active =
                 to === "/" ? pathname === "/" : pathname.startsWith(to);
               return (
@@ -183,7 +164,6 @@ export function Layout({
             </div>
           )}
 
-          {/* Metrics shortcut */}
           <div className="p-3 pt-0">
             <Link
               to="/metrics"
@@ -199,7 +179,7 @@ export function Layout({
 
         {/* Overlay on mobile */}
         {sidebarOpen && (
-          // biome-ignore lint/a11y/useKeyWithClickEvents: overlay trap, close button handles keyboard
+          // biome-ignore lint/a11y/useKeyWithClickEvents: overlay trap
           <div
             className="fixed inset-0 z-30 bg-background/60 backdrop-blur-sm lg:hidden"
             onClick={() => setSidebarOpen(false)}
@@ -215,8 +195,8 @@ export function Layout({
       <footer className="bg-card border-t border-border/40 py-4">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
           <p className="text-[11px] text-muted-foreground font-mono">
-            © {new Date().getFullYear()} NewsRec AI — AI-Powered Recommendation
-            System
+            © {new Date().getFullYear()} NewsRec AI — AI-Powered News
+            Recommendations
           </p>
           <a
             href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}

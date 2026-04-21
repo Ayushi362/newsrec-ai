@@ -1,13 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import type { RecommendationResult } from "@/types";
-import { ALGORITHM_COLORS, ALGORITHM_LABELS } from "@/types";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 
 interface RecommendationCardProps {
   result: RecommendationResult;
   index?: number;
-  /** Compact mode for sidebar — smaller text, tighter padding */
   compact?: boolean;
 }
 
@@ -17,10 +15,9 @@ export function RecommendationCard({
   compact,
 }: RecommendationCardProps) {
   const navigate = useNavigate();
-  const { article, score, confidence, algorithmSource } = result;
+  const { article, score, reason } = result;
   const preview = article.content.slice(0, compact ? 70 : 100).trimEnd();
-  const scorePercent = Math.round(score * 100);
-  const confPercent = Math.round(confidence * 100);
+  const scorePercent = Math.round(Math.min(score, 1) * 100);
 
   return (
     <button
@@ -32,21 +29,16 @@ export function RecommendationCard({
         compact ? "gap-2 p-3" : "gap-2.5 p-4",
       ].join(" ")}
       onClick={() =>
-        void navigate({
-          to: "/articles/$id",
-          params: { id: article.id.toString() },
-        })
+        void navigate({ to: "/articles/$id", params: { id: article.id } })
       }
       data-ocid={
         index !== undefined ? `rec_card.item.${index + 1}` : "rec_card"
       }
     >
       <div className="flex items-center justify-between gap-2 min-w-0">
-        <span
-          className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider border rounded-sm font-mono truncate ${ALGORITHM_COLORS[algorithmSource]}`}
-        >
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider border rounded-sm font-mono truncate text-accent border-accent/40 bg-accent/10">
           <Sparkles className="h-2 w-2 shrink-0" />
-          {ALGORITHM_LABELS[algorithmSource]}
+          {reason.slice(0, 25)}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="text-[9px] text-muted-foreground font-mono">
@@ -87,25 +79,7 @@ export function RecommendationCard({
         >
           {article.category}
         </Badge>
-        <div className="flex items-center gap-1.5">
-          {!compact && (
-            <>
-              <span className="text-[9px] text-muted-foreground font-mono">
-                conf.
-              </span>
-              <div className="w-12 h-1 bg-muted/60 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-accent/70 rounded-full transition-all duration-500"
-                  style={{ width: `${confPercent}%` }}
-                />
-              </div>
-              <span className="text-[9px] text-muted-foreground font-mono tabular-nums">
-                {confPercent}%
-              </span>
-            </>
-          )}
-          <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 group-hover:text-accent transition-smooth" />
-        </div>
+        <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 group-hover:text-accent transition-smooth" />
       </div>
     </button>
   );

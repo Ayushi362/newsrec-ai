@@ -1,15 +1,26 @@
-import { createActor } from "@/backend";
-import type { SubmitArticleRequest, SubmitArticleResult } from "@/types";
-import { useActor } from "@caffeineai/core-infrastructure";
+import { useStore } from "@/lib/store";
+import type {
+  Article,
+  SubmitArticleRequest,
+  SubmitArticleResult,
+} from "@/types";
+import { CATEGORIES } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyActor = any;
+function validateArticle(req: SubmitArticleRequest): string | null {
+  if (req.title.trim().length < 10)
+    return "Title must be at least 10 characters.";
+  if (req.content.trim().length < 100)
+    return "Content must be at least 100 characters.";
+  if (!CATEGORIES.includes(req.category as (typeof CATEGORIES)[number])) {
+    return "Please select a valid category.";
+  }
+  return null;
+}
 
 export function useSubmitArticle() {
-  const { actor: rawActor } = useActor(createActor);
-  const actor = rawActor as AnyActor;
+  const { addArticle } = useStore();
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -17,21 +28,31 @@ export function useSubmitArticle() {
     mutationFn: async (
       req: SubmitArticleRequest,
     ): Promise<SubmitArticleResult> => {
-      if (!actor?.submitArticle) throw new Error("Actor not ready");
-      const raw = await actor.submitArticle(req);
-      if (raw && typeof raw === "object") {
-        if ("success" in raw) {
-          const success = raw as { success: { articleId: bigint } };
-          return { kind: "success", articleId: success.success.articleId };
-        }
-        if ("failure" in raw) {
-          const failure = raw as { failure: { reason: string } };
-          return { kind: "failure", reason: failure.failure.reason };
-        }
+      const validationError = validateArticle(req);
+      if (validationError) {
+        return { kind: "failure", reason: validationError };
       }
-      return { kind: "failure", reason: "Unknown response format" };
+
+      // Simulate brief processing delay
+      await new Promise((r) => setTimeout(r, 600));
+
+      const newArticle: Article = {
+        id: `user-${Date.now()}`,
+        title: req.title.trim(),
+        content: req.content.trim(),
+        category: req.category,
+        imageUrl: `https://picsum.photos/seed/${Date.now()}/800/450`,
+        author: "You",
+        publishedAt: new Date().toISOString(),
+        likeCount: 0,
+        tags: req.tags,
+      };
+
+      addArticle(newArticle);
+
+      return { kind: "success", articleId: newArticle.id };
     },
-    onSuccess: (result: SubmitArticleResult) => {
+    onSuccess: (result) => {
       if (result.kind === "success") {
         setSubmitError(null);
         void queryClient.invalidateQueries({ queryKey: ["articles"] });

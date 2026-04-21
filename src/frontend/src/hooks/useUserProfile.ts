@@ -1,54 +1,37 @@
-import { createActor } from "@/backend";
-import type { UpdateProfileRequest, UserProfile } from "@/types";
-import { useActor } from "@caffeineai/core-infrastructure";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useStore } from "@/lib/store";
+import type { UserProfile } from "@/types";
+import { CATEGORIES } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyActor = any;
-
-export function useUserProfile() {
-  const { actor: rawActor, isFetching } = useActor(createActor);
-  const actor = rawActor as AnyActor;
-  const queryClient = useQueryClient();
+export function useUserProfile(userId?: string) {
+  const currentUserId = useStore((s) => s.currentUserId);
+  const targetId = userId ?? currentUserId;
 
   const profileQuery = useQuery<UserProfile | null>({
-    queryKey: ["userProfile"],
+    queryKey: ["userProfile", targetId],
     queryFn: async () => {
-      if (!actor?.getUserProfile) return null;
-      try {
-        return (await actor.getUserProfile()) as UserProfile;
-      } catch {
-        return null;
-      }
+      const state = useStore.getState();
+      return state.users.find((u) => u.id === targetId) ?? null;
     },
-    enabled: !!actor && !isFetching,
+    enabled: !!targetId,
+    staleTime: Number.POSITIVE_INFINITY,
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async (req: UpdateProfileRequest) => {
-      if (!actor?.updateUserProfile) throw new Error("Method not available");
-      return actor.updateUserProfile(req) as Promise<UserProfile>;
-    },
-    onSuccess: (updated: UserProfile) => {
-      queryClient.setQueryData(["userProfile"], updated);
-    },
-  });
-
-  const recordInteractionMutation = useMutation({
-    mutationFn: async (articleId: bigint) => {
-      if (!actor?.recordProfileInteraction) return;
-      return actor.recordProfileInteraction(articleId);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-    },
-  });
+  const updateProfile = (
+    updates: Partial<Pick<UserProfile, "name" | "region" | "interests">>,
+  ) => {
+    useStore.setState((state) => ({
+      users: state.users.map((u) =>
+        u.id === targetId ? { ...u, ...updates } : u,
+      ),
+    }));
+  };
 
   return {
     profile: profileQuery.data ?? null,
     isLoading: profileQuery.isLoading,
-    updateProfile: updateMutation.mutate,
-    isUpdating: updateMutation.isPending,
-    recordProfileInteraction: recordInteractionMutation.mutate,
+    updateProfile,
+    isUpdating: false,
+    categories: CATEGORIES,
   };
 }

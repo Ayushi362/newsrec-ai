@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/context/AuthContext";
 import { useSubmitArticle } from "@/hooks/useSubmitArticle";
 import { type Article, CATEGORIES } from "@/types";
 import { useNavigate } from "@tanstack/react-router";
@@ -22,16 +21,13 @@ import {
   CheckCircle2,
   Circle,
   FileText,
-  Lock,
   Send,
   Upload,
   X,
 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const MIN_TITLE = 3;
+const MIN_TITLE = 10;
 const MIN_CONTENT = 100;
 
 const SPAM_KEYWORDS = [
@@ -42,7 +38,6 @@ const SPAM_KEYWORDS = [
   "act now",
   "guaranteed",
   "make money fast",
-  "weight loss",
   "100% free",
 ];
 
@@ -51,29 +46,25 @@ function detectSpam(text: string): string[] {
   return SPAM_KEYWORDS.filter((kw) => lower.includes(kw));
 }
 
-/** Build a fake Article shape for the preview card — no backend calls needed */
 function buildPreviewArticle(
   title: string,
   content: string,
   category: string,
 ): Article {
   return {
-    id: 0n,
+    id: "preview",
     title: title || "Your Article Title",
     content: content || "Your article content will appear here in the preview.",
     category: category || "Technology",
-    termFrequencies: [],
+    imageUrl: "https://picsum.photos/seed/preview/800/450",
+    author: "You",
+    publishedAt: new Date().toISOString(),
+    likeCount: 0,
+    tags: [],
   };
 }
 
-// ─── Guideline Row ────────────────────────────────────────────────────────────
-
-interface GuidelineRowProps {
-  label: string;
-  met: boolean | null; // null = not yet touched
-}
-
-function GuidelineRow({ label, met }: GuidelineRowProps) {
+function GuidelineRow({ label, met }: { label: string; met: boolean | null }) {
   return (
     <li className="flex items-center gap-2 text-sm">
       {met === null ? (
@@ -98,45 +89,8 @@ function GuidelineRow({ label, met }: GuidelineRowProps) {
   );
 }
 
-// ─── Auth Gate ───────────────────────────────────────────────────────────────
-
-function AuthGate({ login }: { login: () => void }) {
-  return (
-    <Layout showSidebar={false}>
-      <div
-        className="max-w-lg mx-auto px-4 py-24 flex flex-col items-center gap-6 text-center"
-        data-ocid="upload.auth_gate"
-      >
-        <div className="w-16 h-16 rounded-full bg-muted border border-border/40 flex items-center justify-center">
-          <Lock className="h-7 w-7 text-muted-foreground/50" />
-        </div>
-        <div>
-          <h2 className="font-display font-bold text-xl text-foreground mb-2">
-            Sign in to Submit
-          </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            You need to be signed in to submit articles. Your article will be
-            validated for quality before being added to the recommendation
-            engine.
-          </p>
-        </div>
-        <Button
-          onClick={login}
-          className="gap-2"
-          data-ocid="upload.login_button"
-        >
-          <Lock className="h-3.5 w-3.5" />
-          Sign In with Internet Identity
-        </Button>
-      </div>
-    </Layout>
-  );
-}
-
-// ─── Success State ────────────────────────────────────────────────────────────
-
 interface SuccessStateProps {
-  articleId: bigint;
+  articleId: string;
   onSubmitAnother: () => void;
 }
 
@@ -161,19 +115,14 @@ function SuccessState({ articleId, onSubmitAnother }: SuccessStateProps) {
           </p>
           <p className="text-xs text-muted-foreground/70">
             Article ID:{" "}
-            <span className="font-mono text-accent">
-              {articleId.toString()}
-            </span>
+            <span className="font-mono text-accent">{articleId}</span>
           </p>
         </div>
         <div className="flex gap-3">
           <Button
             variant="outline"
             onClick={() =>
-              void navigate({
-                to: "/articles/$id",
-                params: { id: articleId.toString() },
-              })
+              void navigate({ to: "/articles/$id", params: { id: articleId } })
             }
             className="gap-2"
             data-ocid="upload.view_article_button"
@@ -195,10 +144,7 @@ function SuccessState({ articleId, onSubmitAnother }: SuccessStateProps) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
 export function UploadPage() {
-  const { isAuthenticated, login } = useAuth();
   const { submit, isSubmitting, error, result, clearError } =
     useSubmitArticle();
 
@@ -209,7 +155,6 @@ export function UploadPage() {
   const [submitted, setSubmitted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Touched flags for guidelines — null = untouched, true/false = checked
   const titleTouched = title.length > 0;
   const contentTouched = content.length > 0;
   const categoryTouched = category.length > 0;
@@ -243,7 +188,7 @@ export function UploadPage() {
   const validate = (): Record<string, string> => {
     const errors: Record<string, string> = {};
     if (!title.trim() || title.trim().length < MIN_TITLE)
-      errors.title = `Title must be at least ${MIN_TITLE} characters (currently ${title.trim().length}).`;
+      errors.title = `Title must be at least ${MIN_TITLE} characters.`;
     if (!content.trim() || content.trim().length < MIN_CONTENT)
       errors.content = `Content must be at least ${MIN_CONTENT} characters (currently ${content.trim().length}).`;
     if (!category) errors.category = "Please select a category.";
@@ -280,10 +225,6 @@ export function UploadPage() {
     clearError();
   };
 
-  // ── Guard: not authenticated ───────────────────────────────────────────────
-  if (!isAuthenticated) return <AuthGate login={login} />;
-
-  // ── Guard: success ─────────────────────────────────────────────────────────
   if (result?.kind === "success") {
     return (
       <SuccessState
@@ -293,17 +234,15 @@ export function UploadPage() {
     );
   }
 
-  // ── Derive global backend error message ────────────────────────────────────
   const backendError =
     error ?? (result?.kind === "failure" ? result.reason : null);
 
   return (
     <Layout showSidebar={false}>
-      {/* Page header */}
       <div className="border-b border-border bg-card px-4 sm:px-8 py-6">
         <div className="max-w-6xl mx-auto flex items-center gap-3">
           <div className="w-9 h-9 rounded-md bg-accent/15 border border-accent/25 flex items-center justify-center shrink-0">
-            <FileText className="h-4.5 w-4.5 text-accent" />
+            <FileText className="h-4 w-4 text-accent" />
           </div>
           <div>
             <h1
@@ -313,16 +252,14 @@ export function UploadPage() {
               Submit an Article
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Articles are validated for quality and relevance before being
-              added to the recommendation engine.
+              Articles are validated for quality before being added to the
+              recommendation engine.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Body */}
       <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8">
-        {/* Backend error banner */}
         {backendError && (
           <div
             className="flex items-start gap-3 p-4 mb-6 bg-destructive/8 border border-destructive/30 rounded-md"
@@ -346,32 +283,28 @@ export function UploadPage() {
           </div>
         )}
 
-        {/* Three-column layout: Guidelines | Form | Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6 xl:gap-8">
-          {/* ── Column 1: Guidelines ─────────────────────────────────────── */}
+          {/* Guidelines */}
           <aside
             className="hidden lg:block"
-            aria-label="Submission guidelines"
             data-ocid="upload.guidelines_panel"
           >
             <div className="bg-card border border-border rounded-md p-4 sticky top-6">
               <h2 className="font-display font-semibold text-sm text-foreground mb-3 flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-accent" />
-                Requirements
+                <CheckCircle2 className="h-4 w-4 text-accent" /> Requirements
               </h2>
               <ul className="flex flex-col gap-2.5">
                 <GuidelineRow
-                  label={`Title ≥ ${MIN_TITLE} characters`}
+                  label={`Title ≥ ${MIN_TITLE} chars`}
                   met={titleMet}
                 />
                 <GuidelineRow
-                  label={`Content ≥ ${MIN_CONTENT} characters`}
+                  label={`Content ≥ ${MIN_CONTENT} chars`}
                   met={contentMet}
                 />
                 <GuidelineRow label="Category selected" met={categoryMet} />
                 <GuidelineRow label="No spam keywords" met={noSpamMet} />
               </ul>
-
               {spamHits.length > 0 && (
                 <div className="mt-3 p-2 bg-destructive/8 border border-destructive/20 rounded-sm">
                   <p className="text-[10px] font-semibold text-destructive mb-1">
@@ -389,7 +322,6 @@ export function UploadPage() {
                   </div>
                 </div>
               )}
-
               <div className="mt-5 pt-4 border-t border-border">
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
                   Submitted articles are reviewed by our NLP pipeline before
@@ -399,27 +331,20 @@ export function UploadPage() {
             </div>
           </aside>
 
-          {/* ── Column 2: Form ───────────────────────────────────────────── */}
+          {/* Form */}
           <section>
             <form
               onSubmit={handleSubmit}
               className="flex flex-col gap-5"
               noValidate
             >
-              {/* Title */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="upload-title" className="text-sm font-medium">
                     Title <span className="text-destructive">*</span>
                   </Label>
                   <span
-                    className={`text-[10px] font-mono tabular-nums ${
-                      title.trim().length >= MIN_TITLE
-                        ? "text-accent"
-                        : titleTouched
-                          ? "text-destructive"
-                          : "text-muted-foreground/50"
-                    }`}
+                    className={`text-[10px] font-mono tabular-nums ${title.trim().length >= MIN_TITLE ? "text-accent" : titleTouched ? "text-destructive" : "text-muted-foreground/50"}`}
                   >
                     {title.length} chars
                   </span>
@@ -446,7 +371,6 @@ export function UploadPage() {
                 )}
               </div>
 
-              {/* Category */}
               <div className="flex flex-col gap-1.5">
                 <Label className="text-sm font-medium">
                   Category <span className="text-destructive">*</span>
@@ -483,7 +407,6 @@ export function UploadPage() {
                 )}
               </div>
 
-              {/* Tags */}
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="upload-tags" className="text-sm font-medium">
                   Tags{" "}
@@ -500,10 +423,7 @@ export function UploadPage() {
                   data-ocid="upload.tags_input"
                 />
                 {parsedTags.length > 0 && (
-                  <div
-                    className="flex flex-wrap gap-1.5 mt-0.5"
-                    aria-label="Parsed tags"
-                  >
+                  <div className="flex flex-wrap gap-1.5 mt-0.5">
                     {parsedTags.map((tag) => (
                       <Badge
                         key={tag}
@@ -517,7 +437,6 @@ export function UploadPage() {
                 )}
               </div>
 
-              {/* Content */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <Label
@@ -527,13 +446,7 @@ export function UploadPage() {
                     Article Content <span className="text-destructive">*</span>
                   </Label>
                   <span
-                    className={`text-[10px] font-mono tabular-nums ${
-                      content.trim().length >= MIN_CONTENT
-                        ? "text-accent"
-                        : contentTouched
-                          ? "text-destructive"
-                          : "text-muted-foreground/50"
-                    }`}
+                    className={`text-[10px] font-mono tabular-nums ${content.trim().length >= MIN_CONTENT ? "text-accent" : contentTouched ? "text-destructive" : "text-muted-foreground/50"}`}
                   >
                     {content.length} / {MIN_CONTENT} chars
                   </span>
@@ -547,27 +460,15 @@ export function UploadPage() {
                       setFieldErrors((p) => ({ ...p, content: "" }));
                   }}
                   placeholder="Write your full article here (minimum 100 characters)…"
-                  className={`min-h-[260px] resize-y text-sm leading-relaxed ${
-                    submitted && fieldErrors.content
-                      ? "border-destructive focus-visible:ring-destructive/30"
-                      : ""
-                  }`}
+                  className={`min-h-[260px] resize-y text-sm leading-relaxed ${submitted && fieldErrors.content ? "border-destructive focus-visible:ring-destructive/30" : ""}`}
                   data-ocid="upload.content_textarea"
                 />
-                {/* Progress bar */}
                 <div className="h-1 bg-muted rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      content.length >= MIN_CONTENT
-                        ? "bg-accent"
-                        : "bg-destructive/50"
-                    }`}
-                    style={
-                      {
-                        "--progress": `${Math.min(100, (content.length / MIN_CONTENT) * 100)}%`,
-                        width: "var(--progress)",
-                      } as React.CSSProperties
-                    }
+                    className={`h-full rounded-full transition-all duration-300 ${content.length >= MIN_CONTENT ? "bg-accent" : "bg-destructive/50"}`}
+                    style={{
+                      width: `${Math.min(100, (content.length / MIN_CONTENT) * 100)}%`,
+                    }}
                   />
                 </div>
                 {fieldErrors.content && (
@@ -580,27 +481,6 @@ export function UploadPage() {
                 )}
               </div>
 
-              {/* Mobile-only guidelines */}
-              <div className="lg:hidden bg-card border border-border rounded-md p-4">
-                <h2 className="font-display font-semibold text-sm text-foreground mb-3 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-accent" />
-                  Requirements
-                </h2>
-                <ul className="flex flex-col gap-2">
-                  <GuidelineRow
-                    label={`Title ≥ ${MIN_TITLE} characters`}
-                    met={titleMet}
-                  />
-                  <GuidelineRow
-                    label={`Content ≥ ${MIN_CONTENT} characters`}
-                    met={contentMet}
-                  />
-                  <GuidelineRow label="Category selected" met={categoryMet} />
-                  <GuidelineRow label="No spam keywords" met={noSpamMet} />
-                </ul>
-              </div>
-
-              {/* Submit */}
               <div className="flex items-center gap-3 pt-1">
                 <Button
                   type="submit"
@@ -619,20 +499,15 @@ export function UploadPage() {
                     className="text-muted-foreground hover:text-foreground gap-1.5"
                     data-ocid="upload.reset_button"
                   >
-                    <X className="h-3.5 w-3.5" />
-                    Clear form
+                    <X className="h-3.5 w-3.5" /> Clear form
                   </Button>
                 )}
               </div>
             </form>
           </section>
 
-          {/* ── Column 3: Live Preview ───────────────────────────────────── */}
-          <aside
-            className="hidden lg:block"
-            aria-label="Article preview"
-            data-ocid="upload.preview_panel"
-          >
+          {/* Live Preview */}
+          <aside className="hidden lg:block" data-ocid="upload.preview_panel">
             <div className="sticky top-6 flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -646,8 +521,6 @@ export function UploadPage() {
               <p className="text-[10px] text-muted-foreground/60 text-center leading-relaxed">
                 This is how your article card will appear in feeds
               </p>
-
-              {/* Tags preview */}
               {parsedTags.length > 0 && (
                 <div className="mt-1 p-3 bg-card border border-border rounded-md">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">

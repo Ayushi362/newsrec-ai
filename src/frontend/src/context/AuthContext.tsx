@@ -1,29 +1,19 @@
-import { useInternetIdentity } from "@caffeineai/core-infrastructure";
-import { type ReactNode, createContext, useContext, useMemo } from "react";
+import { type ReactNode, createContext, useContext } from "react";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
   identity: string | null;
-  login: () => void;
-  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { login, clear, identity, isAuthenticated } = useInternetIdentity();
-
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      isAuthenticated,
-      identity: identity?.getPrincipal().toText() ?? null,
-      login,
-      logout: clear,
-    }),
-    [login, clear, identity, isAuthenticated],
+  // Standalone mode: always authenticated as a demo user
+  return (
+    <AuthContext.Provider value={{ isAuthenticated: true, identity: "demo" }}>
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

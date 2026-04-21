@@ -2,11 +2,13 @@ import { ArticleCard } from "@/components/ArticleCard";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/context/AuthContext";
 import { useSearch, useSearchHistory } from "@/hooks/useSearch";
+import { useStore } from "@/lib/store";
 import { CATEGORIES } from "@/types";
-import { useNavigate } from "@tanstack/react-router";
-import { useSearch as useRouterSearch } from "@tanstack/react-router";
+import {
+  useNavigate,
+  useSearch as useRouterSearch,
+} from "@tanstack/react-router";
 import { Clock, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -14,14 +16,14 @@ const SORT_OPTIONS = ["Relevance", "Latest"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
 
 const SUGGESTED_SEARCHES = [
-  "Technology",
+  "Artificial Intelligence",
   "Business",
-  "Health",
-  "Science",
-  "World",
-  "Climate change",
-  "AI advancements",
+  "Climate Change",
+  "Space Exploration",
+  "Olympic Games",
+  "Healthcare",
   "Economy",
+  "Nuclear Fusion",
 ];
 
 export function SearchPage() {
@@ -29,7 +31,7 @@ export function SearchPage() {
     from: "/search",
   });
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { recordSearch } = useStore();
 
   const [inputValue, setInputValue] = useState(urlQuery ?? "");
   const [activeCategory, setActiveCategory] = useState<string>(
@@ -40,9 +42,8 @@ export function SearchPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRecordedRef = useRef<string>("");
 
-  const { history, recordSearch } = useSearchHistory();
+  const { history } = useSearchHistory();
 
-  // Debounce input → search query
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -53,36 +54,31 @@ export function SearchPage() {
     };
   }, [inputValue]);
 
-  // Sync URL params → local state when navigating here
   useEffect(() => {
     if (urlQuery !== undefined) setInputValue(urlQuery);
     if (urlCategory !== undefined) setActiveCategory(urlCategory);
   }, [urlQuery, urlCategory]);
 
-  // Record search in history when debounced query settles (authenticated only)
   useEffect(() => {
     const trimmed = debouncedQuery.trim();
-    if (
-      isAuthenticated &&
-      trimmed.length >= 2 &&
-      trimmed !== hasRecordedRef.current
-    ) {
+    if (trimmed.length >= 2 && trimmed !== hasRecordedRef.current) {
       hasRecordedRef.current = trimmed;
       recordSearch(trimmed);
     }
-  }, [debouncedQuery, isAuthenticated, recordSearch]);
+  }, [debouncedQuery, recordSearch]);
 
   const { data: rawResults, isLoading } = useSearch(
     debouncedQuery,
     activeCategory || undefined,
   );
 
-  // Client-side sort
   const results = useMemo(() => {
     if (!rawResults) return [];
     if (sortBy === "Latest") {
-      // Sort by id descending (higher id = newer article)
-      return [...rawResults].sort((a, b) => (b.id > a.id ? 1 : -1));
+      return [...rawResults].sort(
+        (a, b) =>
+          new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
+      );
     }
     return rawResults;
   }, [rawResults, sortBy]);
@@ -108,12 +104,12 @@ export function SearchPage() {
         to: "/search",
         search: { q: trimmed, category: activeCategory },
       });
-      if (isAuthenticated && trimmed.length >= 2) {
+      if (trimmed.length >= 2) {
         hasRecordedRef.current = trimmed;
         recordSearch(trimmed);
       }
     },
-    [inputValue, activeCategory, isAuthenticated, navigate, recordSearch],
+    [inputValue, activeCategory, navigate, recordSearch],
   );
 
   const handleHistoryClick = useCallback(
@@ -135,7 +131,7 @@ export function SearchPage() {
   }, [navigate]);
 
   const recentSearches = history.slice(0, 10);
-  const hasQuery = debouncedQuery.trim().length >= 2;
+  const hasQuery = debouncedQuery.trim().length >= 1;
   const hasResults = results.length > 0;
 
   return (
@@ -144,7 +140,7 @@ export function SearchPage() {
       <div className="hero-section">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-2 mb-3">
-            <Search className="h-5 w-5 text-accent" aria-hidden="true" />
+            <Search className="h-5 w-5 text-accent" />
             <h1
               className="font-display font-bold text-xl text-foreground"
               data-ocid="search.page"
@@ -157,10 +153,9 @@ export function SearchPage() {
             recommendations.
           </p>
 
-          {/* Large search form */}
           <form onSubmit={handleSearchSubmit} className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-muted-foreground pointer-events-none" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <input
                 type="search"
                 value={inputValue}
@@ -183,7 +178,6 @@ export function SearchPage() {
               )}
             </div>
 
-            {/* Category select */}
             <div className="relative">
               <select
                 value={activeCategory}
@@ -219,18 +213,14 @@ export function SearchPage() {
         </div>
       </div>
 
-      {/* Category chip strip */}
+      {/* Category chips */}
       <div className="border-b border-border bg-card">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 overflow-x-auto">
           <div className="flex gap-2 min-w-max">
             <button
               type="button"
               onClick={() => handleCategoryClick("")}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-smooth border whitespace-nowrap ${
-                activeCategory === ""
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-              }`}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-smooth border whitespace-nowrap ${activeCategory === "" ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"}`}
               data-ocid="search.category_chip.all"
             >
               All
@@ -240,11 +230,7 @@ export function SearchPage() {
                 key={cat}
                 type="button"
                 onClick={() => handleCategoryClick(cat)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-smooth border whitespace-nowrap ${
-                  activeCategory === cat
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-                }`}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-smooth border whitespace-nowrap ${activeCategory === cat ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"}`}
                 data-ocid={`search.category_chip.${i + 1}`}
               >
                 {cat}
@@ -258,32 +244,55 @@ export function SearchPage() {
       <div className="feed-section">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
           <div className="flex gap-6">
-            {/* Results column */}
             <div className="flex-1 min-w-0">
               {!hasQuery ? (
-                /* Idle state */
-                <IdleState
-                  onSuggestionClick={handleHistoryClick}
-                  isAuthenticated={isAuthenticated}
-                  recentSearches={recentSearches}
-                  onHistoryClick={handleHistoryClick}
-                />
+                <div
+                  className="flex flex-col items-center py-12 text-center gap-6"
+                  data-ocid="search.idle_state"
+                >
+                  <div className="w-20 h-20 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
+                    <Sparkles className="h-9 w-9 text-accent/60" />
+                  </div>
+                  <div>
+                    <p className="text-base font-display font-semibold text-foreground mb-1">
+                      Discover your next read
+                    </p>
+                    <p className="text-sm text-muted-foreground max-w-sm">
+                      Type a keyword above to search across all articles.
+                    </p>
+                  </div>
+                  <div className="w-full max-w-sm">
+                    <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest mb-3">
+                      Try searching for
+                    </p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {SUGGESTED_SEARCHES.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => handleHistoryClick(s)}
+                          className="px-3.5 py-1.5 text-xs font-medium bg-card border border-border rounded-full hover:border-accent/50 hover:text-accent text-muted-foreground transition-smooth"
+                          data-ocid="search.suggestion_chip"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               ) : isLoading ? (
-                /* Loading skeleton */
                 <div
                   className="flex flex-col gap-3"
                   data-ocid="search.loading_state"
                 >
                   <div className="h-5 w-48 bg-muted/40 rounded animate-pulse mb-2" />
                   {Array.from({ length: 4 }).map((_, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder
+                    // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
                     <Skeleton key={i} className="h-28 rounded-md w-full" />
                   ))}
                 </div>
               ) : hasResults ? (
-                /* Results list */
                 <div>
-                  {/* Results meta bar */}
                   <div className="flex items-center justify-between mb-4">
                     <p
                       className="text-sm text-muted-foreground"
@@ -296,22 +305,8 @@ export function SearchPage() {
                       <span className="font-semibold text-accent">
                         &ldquo;{debouncedQuery.trim()}&rdquo;
                       </span>
-                      {activeCategory && (
-                        <>
-                          {" "}
-                          in{" "}
-                          <span className="font-semibold text-foreground">
-                            {activeCategory}
-                          </span>
-                        </>
-                      )}
                     </p>
-
-                    {/* Sort control */}
-                    <div
-                      className="flex items-center gap-1.5"
-                      aria-label="Sort results"
-                    >
+                    <div className="flex items-center gap-1.5">
                       <span className="text-xs text-muted-foreground font-mono hidden sm:inline">
                         Sort:
                       </span>
@@ -320,11 +315,7 @@ export function SearchPage() {
                           key={opt}
                           type="button"
                           onClick={() => setSortBy(opt)}
-                          className={`px-2.5 py-1 text-xs rounded-sm border transition-smooth ${
-                            sortBy === opt
-                              ? "bg-primary/10 text-primary border-primary/30 font-semibold"
-                              : "bg-transparent text-muted-foreground border-border hover:text-foreground"
-                          }`}
+                          className={`px-2.5 py-1 text-xs rounded-sm border transition-smooth ${sortBy === opt ? "bg-primary/10 text-primary border-primary/30 font-semibold" : "bg-transparent text-muted-foreground border-border hover:text-foreground"}`}
                           data-ocid={`search.sort_${opt.toLowerCase()}`}
                         >
                           {opt}
@@ -332,14 +323,13 @@ export function SearchPage() {
                       ))}
                     </div>
                   </div>
-
                   <div
                     className="flex flex-col gap-3"
                     data-ocid="search.results_list"
                   >
                     {results.map((article, i) => (
                       <ArticleCard
-                        key={article.id.toString()}
+                        key={article.id}
                         article={article}
                         index={i}
                       />
@@ -347,40 +337,62 @@ export function SearchPage() {
                   </div>
                 </div>
               ) : (
-                /* Empty state */
-                <EmptyState
-                  query={debouncedQuery.trim()}
-                  onClear={handleClearSearch}
-                  onSuggestionClick={handleHistoryClick}
-                />
+                <div
+                  className="flex flex-col items-center gap-5 py-14 text-center"
+                  data-ocid="search.empty_state"
+                >
+                  <div className="relative w-24 h-24">
+                    <div className="absolute inset-0 rounded-full bg-muted/50 border border-border/40" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Search className="h-10 w-10 text-muted-foreground/30" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-destructive/15 border border-destructive/20 flex items-center justify-center">
+                      <X className="h-3.5 w-3.5 text-destructive/60" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-base font-display font-semibold text-foreground mb-1">
+                      No articles found for &ldquo;{debouncedQuery.trim()}
+                      &rdquo;
+                    </p>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      Try a different keyword or remove the category filter.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearSearch}
+                    className="gap-1.5"
+                    data-ocid="search.clear_search_button"
+                  >
+                    <X className="h-3.5 w-3.5" /> Clear search
+                  </Button>
+                </div>
               )}
             </div>
 
-            {/* Search history sidebar (authenticated only) */}
-            {isAuthenticated && recentSearches.length > 0 && (
+            {recentSearches.length > 0 && (
               <aside
                 className="hidden lg:block w-56 shrink-0"
                 data-ocid="search.history_section"
-                aria-label="Recent searches"
               >
                 <div className="bg-card border border-border/60 rounded-lg p-4 sticky top-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-xs font-display font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-accent" />
-                      Recent Searches
-                    </h2>
-                  </div>
+                  <h2 className="text-xs font-display font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                    <Clock className="h-3.5 w-3.5 text-accent" /> Recent
+                    Searches
+                  </h2>
                   <div className="flex flex-col gap-1.5">
-                    {recentSearches.map((entry, i) => (
+                    {recentSearches.map((term, i) => (
                       <button
-                        key={`${entry.query}-${i}`}
+                        key={term}
                         type="button"
-                        onClick={() => handleHistoryClick(entry.query)}
+                        onClick={() => handleHistoryClick(term)}
                         className="w-full text-left px-2.5 py-1.5 text-xs rounded-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-smooth flex items-center gap-2 group"
                         data-ocid={`search.history_item.${i + 1}`}
                       >
                         <Search className="h-3 w-3 shrink-0 text-muted-foreground/40 group-hover:text-accent transition-colors" />
-                        <span className="truncate">{entry.query}</span>
+                        <span className="truncate">{term}</span>
                       </button>
                     ))}
                   </div>
@@ -388,187 +400,8 @@ export function SearchPage() {
               </aside>
             )}
           </div>
-
-          {/* Mobile search history (authenticated only) */}
-          {isAuthenticated && recentSearches.length > 0 && !hasQuery && (
-            <div
-              className="lg:hidden mt-6 bg-card border border-border/60 rounded-lg p-4"
-              data-ocid="search.history_mobile"
-            >
-              <h2 className="text-xs font-display font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 mb-3">
-                <Clock className="h-3.5 w-3.5 text-accent" />
-                Recent Searches
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {recentSearches.map((entry, i) => (
-                  <button
-                    key={`mobile-${entry.query}-${i}`}
-                    type="button"
-                    onClick={() => handleHistoryClick(entry.query)}
-                    className="px-3 py-1.5 text-xs font-medium bg-muted/40 border border-border/40 rounded-full hover:bg-muted/70 hover:text-foreground text-muted-foreground transition-smooth"
-                    data-ocid={`search.history_chip.${i + 1}`}
-                  >
-                    {entry.query}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </Layout>
-  );
-}
-
-// ──────────────────────────────────────────────
-// Sub-components
-// ──────────────────────────────────────────────
-
-function IdleState({
-  onSuggestionClick,
-  isAuthenticated,
-  recentSearches,
-  onHistoryClick,
-}: {
-  onSuggestionClick: (term: string) => void;
-  isAuthenticated: boolean;
-  recentSearches: Array<{ query: string }>;
-  onHistoryClick: (term: string) => void;
-}) {
-  return (
-    <div
-      className="flex flex-col items-center py-12 text-center gap-6"
-      data-ocid="search.idle_state"
-    >
-      <div className="w-20 h-20 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
-        <Sparkles className="h-9 w-9 text-accent/60" />
-      </div>
-      <div>
-        <p className="text-base font-display font-semibold text-foreground mb-1">
-          Discover your next read
-        </p>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Type a keyword above to search across all articles. Your searches
-          personalize your news feed.
-        </p>
-      </div>
-
-      {/* Recent searches (mobile) */}
-      {isAuthenticated && recentSearches.length > 0 && (
-        <div className="lg:hidden w-full max-w-sm">
-          <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest mb-2">
-            Recent
-          </p>
-          <div className="flex flex-wrap gap-2 justify-center">
-            {recentSearches.slice(0, 5).map((entry) => (
-              <button
-                key={entry.query}
-                type="button"
-                onClick={() => onHistoryClick(entry.query)}
-                className="px-3 py-1.5 text-xs font-medium bg-muted/40 border border-border/40 rounded-full hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-smooth"
-              >
-                {entry.query}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Suggestions */}
-      <div className="w-full max-w-sm">
-        <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest mb-3">
-          Try searching for
-        </p>
-        <div className="flex flex-wrap gap-2 justify-center">
-          {SUGGESTED_SEARCHES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => onSuggestionClick(s)}
-              className="px-3.5 py-1.5 text-xs font-medium bg-card border border-border rounded-full hover:border-accent/50 hover:text-accent text-muted-foreground transition-smooth"
-              data-ocid="search.suggestion_chip"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({
-  query,
-  onClear,
-  onSuggestionClick,
-}: {
-  query: string;
-  onClear: () => void;
-  onSuggestionClick: (term: string) => void;
-}) {
-  return (
-    <div
-      className="flex flex-col items-center gap-5 py-14 text-center"
-      data-ocid="search.empty_state"
-    >
-      {/* Illustration */}
-      <div className="relative w-24 h-24">
-        <div className="absolute inset-0 rounded-full bg-muted/50 border border-border/40" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Search className="h-10 w-10 text-muted-foreground/30" />
-        </div>
-        <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-destructive/15 border border-destructive/20 flex items-center justify-center">
-          <X className="h-3.5 w-3.5 text-destructive/60" />
-        </div>
-      </div>
-
-      <div>
-        <p className="text-base font-display font-semibold text-foreground mb-1">
-          No articles found for &ldquo;{query}&rdquo;
-        </p>
-        <p className="text-sm text-muted-foreground max-w-xs">
-          Try a different keyword or remove the category filter.
-        </p>
-      </div>
-
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onClear}
-        className="gap-1.5"
-        data-ocid="search.clear_search_button"
-      >
-        <X className="h-3.5 w-3.5" />
-        Clear search
-      </Button>
-
-      {/* Suggestions */}
-      <div className="pt-2">
-        <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest mb-3">
-          Try searching for
-        </p>
-        <div className="flex flex-wrap gap-2 justify-center max-w-sm">
-          {[
-            "Technology",
-            "Business",
-            "Health",
-            "Science",
-            "World",
-            "Sports",
-            "Entertainment",
-          ].map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => onSuggestionClick(s)}
-              className="px-3 py-1.5 text-xs font-medium bg-card border border-border rounded-full hover:border-accent/40 hover:text-accent text-muted-foreground transition-smooth"
-              data-ocid="search.empty_suggestion"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }

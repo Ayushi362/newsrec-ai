@@ -3,47 +3,34 @@ import { Layout } from "@/components/Layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/context/AuthContext";
+import { useUser } from "@/context/UserContext";
 import { useArticles } from "@/hooks/useArticles";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { useTrending } from "@/hooks/useTrending";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { AlgorithmSource, type Article, CATEGORIES } from "@/types";
+import { type Article, CATEGORIES } from "@/types";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   BookOpen,
   Flame,
   Heart,
-  LogIn,
   Newspaper,
   Settings,
   Sparkles,
   Tag,
   TrendingUp,
-  Users,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-// ── Category gradient map ───────────────────────────────────────────────────
 const CATEGORY_GRADIENTS: Record<string, string> = {
   Technology: "from-accent/40 via-accent/15 to-transparent",
   Business: "from-chart-3/40 via-chart-3/15 to-transparent",
   Health: "from-chart-5/40 via-chart-5/15 to-transparent",
   Science: "from-chart-2/40 via-chart-2/15 to-transparent",
-  World: "from-muted/60 via-muted/25 to-transparent",
   Sports: "from-primary/40 via-primary/15 to-transparent",
   Entertainment: "from-chart-4/40 via-chart-4/15 to-transparent",
-};
-
-const CATEGORY_EMOJIS: Record<string, string> = {
-  Technology: "💻",
-  Business: "📈",
-  Health: "🏥",
-  Science: "🔬",
-  World: "🌍",
-  Sports: "⚽",
-  Entertainment: "🎬",
+  Politics: "from-chart-1/40 via-chart-1/15 to-transparent",
 };
 
 const CATEGORY_BADGE_COLORS: Record<string, string> = {
@@ -51,27 +38,26 @@ const CATEGORY_BADGE_COLORS: Record<string, string> = {
   Business: "bg-chart-3/20 text-chart-3 border-chart-3/30",
   Health: "bg-chart-5/20 text-chart-5 border-chart-5/30",
   Science: "bg-chart-2/20 text-chart-2 border-chart-2/30",
-  World: "bg-muted text-muted-foreground border-border",
   Sports: "bg-primary/20 text-primary border-primary/30",
   Entertainment: "bg-chart-4/20 text-chart-4 border-chart-4/30",
+  Politics: "bg-chart-1/20 text-chart-1 border-chart-1/30",
 };
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-function timeAgo(id: bigint): string {
-  // Approximate based on article id — lower ids are older
-  const hours = Number(id % BigInt(72)) + 1;
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
+const CATEGORY_EMOJIS: Record<string, string> = {
+  Technology: "💻",
+  Business: "📈",
+  Health: "🏥",
+  Science: "🔬",
+  Sports: "⚽",
+  Entertainment: "🎬",
+  Politics: "🏛️",
+};
 
-function getExcerpt(content: string, maxLen = 140): string {
+function getExcerpt(content: string, maxLen = 160): string {
   if (content.length <= maxLen) return content;
   return `${content.slice(0, maxLen).trimEnd()}…`;
 }
 
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-/** Full-width hero card for the featured article */
 function HeroCard({ article }: { article: Article }) {
   const navigate = useNavigate();
   const gradient =
@@ -80,35 +66,29 @@ function HeroCard({ article }: { article: Article }) {
   const badgeColor =
     CATEGORY_BADGE_COLORS[article.category] ??
     "bg-muted text-muted-foreground border-border";
-  const emoji = CATEGORY_EMOJIS[article.category] ?? "📰";
 
   const goToArticle = () =>
-    void navigate({
-      to: "/articles/$id",
-      params: { id: article.id.toString() },
-    });
+    void navigate({ to: "/articles/$id", params: { id: article.id } });
 
   return (
     <div
       className="relative w-full overflow-hidden rounded-xl border border-border/50 bg-card shadow-md group"
       data-ocid="hero.card"
     >
-      {/* Visual background */}
+      {article.imageUrl && (
+        <div className="absolute inset-0">
+          <img
+            src={article.imageUrl}
+            alt=""
+            className="w-full h-full object-cover opacity-25 group-hover:opacity-30 transition-opacity duration-500"
+          />
+        </div>
+      )}
       <div
         className={`absolute inset-0 bg-gradient-to-br ${gradient} pointer-events-none`}
       />
-      {/* Dark gradient overlay at bottom */}
       <div className="absolute inset-0 bg-gradient-to-t from-card/95 via-card/30 to-transparent pointer-events-none" />
 
-      {/* Large emoji accent */}
-      <div
-        className="absolute top-6 right-8 text-8xl opacity-20 select-none pointer-events-none"
-        aria-hidden="true"
-      >
-        {emoji}
-      </div>
-
-      {/* Clickable overlay — covers full card except Read button */}
       <button
         type="button"
         className="absolute inset-0 z-[5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
@@ -116,16 +96,15 @@ function HeroCard({ article }: { article: Article }) {
         aria-label={`Read article: ${article.title}`}
       />
 
-      {/* Content */}
       <div className="relative z-10 p-6 sm:p-8 flex flex-col gap-4 min-h-[260px] sm:min-h-[300px] justify-end pointer-events-none">
         <div className="flex items-center gap-2">
           <Badge
             className={`text-[10px] font-mono font-semibold uppercase tracking-wider border px-2.5 py-0.5 rounded-sm ${badgeColor}`}
           >
-            {article.category}
+            {CATEGORY_EMOJIS[article.category] ?? "📰"} {article.category}
           </Badge>
           <span className="text-[10px] text-muted-foreground font-mono">
-            {timeAgo(article.id)}
+            {new Date(article.publishedAt).toLocaleDateString()}
           </span>
         </div>
 
@@ -152,20 +131,15 @@ function HeroCard({ article }: { article: Article }) {
   );
 }
 
-/** Horizontal scrollable category chip strip */
 function CategoryStrip({
   active,
   onChange,
-}: {
-  active: string;
-  onChange: (cat: string) => void;
-}) {
+}: { active: string; onChange: (cat: string) => void }) {
   const all = ["All", ...CATEGORIES];
   return (
     <div
       className="flex gap-2 overflow-x-auto pb-1 scrollbar-none"
       role="tablist"
-      aria-label="Filter by category"
       data-ocid="category_strip.list"
     >
       {all.map((cat) => {
@@ -190,9 +164,7 @@ function CategoryStrip({
             data-ocid={`category_strip.${cat.toLowerCase()}_tab`}
           >
             {cat !== "All" && (
-              <span className="mr-1" aria-hidden="true">
-                {CATEGORY_EMOJIS[cat] ?? ""}
-              </span>
+              <span className="mr-1">{CATEGORY_EMOJIS[cat] ?? ""}</span>
             )}
             {cat}
           </button>
@@ -202,7 +174,6 @@ function CategoryStrip({
   );
 }
 
-/** Section header with icon, title, count, and optional "See all" link */
 function SectionHeader({
   icon: Icon,
   title,
@@ -219,7 +190,7 @@ function SectionHeader({
   return (
     <div className="flex items-center gap-3 mb-5" data-ocid={ocid}>
       <div className="flex items-center gap-2 min-w-0">
-        <Icon className="h-4.5 w-4.5 text-accent shrink-0" />
+        <Icon className="h-4 w-4 text-accent shrink-0" />
         <h2 className="font-display font-bold text-lg text-foreground tracking-tight">
           {title}
         </h2>
@@ -242,28 +213,22 @@ function SectionHeader({
   );
 }
 
-/** Skeleton grid used while loading */
 function CardGridSkeleton({ count = 8 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {Array.from({ length: count }).map((_, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
-        <Skeleton key={i} className="h-44 rounded-lg" />
+        <Skeleton key={i} className="h-56 rounded-lg" />
       ))}
     </div>
   );
 }
 
-/** Standard article card grid */
 function ArticleGrid({
   articles,
   startIndex = 0,
   ocid,
-}: {
-  articles: Article[];
-  startIndex?: number;
-  ocid: string;
-}) {
+}: { articles: Article[]; startIndex?: number; ocid: string }) {
   return (
     <div
       className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
@@ -271,7 +236,7 @@ function ArticleGrid({
     >
       {articles.map((article, i) => (
         <ArticleCard
-          key={article.id.toString()}
+          key={article.id}
           article={article}
           index={startIndex + i}
         />
@@ -280,7 +245,6 @@ function ArticleGrid({
   );
 }
 
-/** Empty state block */
 function EmptyState({
   icon: Icon,
   headline,
@@ -311,26 +275,21 @@ function EmptyState({
   );
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
-
 export function ArticleBrowserPage() {
-  const { isAuthenticated, login } = useAuth();
-  const { profile } = useUserProfile();
+  const { currentUserId, currentUser } = useUser();
+  const { profile } = useUserProfile(currentUserId);
   const [activeCategory, setActiveCategory] = useState("All");
 
-  // Data fetching
   const { data: articles, isLoading: articlesLoading } = useArticles();
   const { data: trendingArticles, isLoading: trendingLoading } =
     useTrending(10);
-  const userId = isAuthenticated ? (profile?.principalText ?? "me") : "";
-  const { data: recResponse, isLoading: recsLoading } = useRecommendations(
-    userId,
-    AlgorithmSource.hybrid,
+  const { data: recommendations, isLoading: recsLoading } = useRecommendations(
+    currentUserId,
+    "hybrid",
     undefined,
     8,
   );
 
-  // Featured article: first trending or first article
   const featuredArticle = useMemo(() => {
     if (activeCategory !== "All") {
       return articles?.find((a) => a.category === activeCategory) ?? null;
@@ -338,74 +297,49 @@ export function ArticleBrowserPage() {
     return trendingArticles?.[0] ?? articles?.[0] ?? null;
   }, [trendingArticles, articles, activeCategory]);
 
-  // Trending list (exclude hero)
   const trendingList = useMemo(() => {
     const all = trendingArticles ?? [];
     const filtered =
       activeCategory !== "All"
         ? all.filter((a) => a.category === activeCategory)
         : all;
-    const heroId = featuredArticle?.id;
-    return filtered.filter((a) => a.id !== heroId).slice(0, 8);
+    return filtered.filter((a) => a.id !== featuredArticle?.id).slice(0, 8);
   }, [trendingArticles, featuredArticle, activeCategory]);
 
-  // Recommendations
-  const recommendations = useMemo(() => {
-    const recs = recResponse?.recommendations ?? [];
+  const filteredRecs = useMemo(() => {
+    const recs = recommendations ?? [];
     const filtered =
       activeCategory !== "All"
         ? recs.filter((r) => r.article.category === activeCategory)
         : recs;
     return filtered.slice(0, 8).map((r) => r.article);
-  }, [recResponse, activeCategory]);
+  }, [recommendations, activeCategory]);
 
-  // Fallback popular articles for anonymous rec section
-  const popularFallback = useMemo(() => {
-    const all = articles ?? [];
-    const filtered =
-      activeCategory !== "All"
-        ? all.filter((a) => a.category === activeCategory)
-        : all;
-    return filtered.slice(0, 8);
-  }, [articles, activeCategory]);
-
-  // Interests section: auth → preferred categories, anon → group by category
   const interestArticles = useMemo(() => {
     const all = articles ?? [];
-    if (!isAuthenticated || !profile) {
-      // Anonymous: show first 3 per popular category, flatten
-      const groups: Article[] = [];
-      const usedCats = new Set<string>();
-      for (const a of all) {
-        if (usedCats.size >= 4) break;
-        if (!usedCats.has(a.category)) usedCats.add(a.category);
-      }
-      for (const cat of usedCats) {
-        const catArticles = all.filter((a) => a.category === cat).slice(0, 3);
-        groups.push(...catArticles);
-      }
+    const interests = profile?.interests ?? currentUser?.interests ?? [];
+    if (!interests.length) {
       return activeCategory !== "All"
         ? all.filter((a) => a.category === activeCategory).slice(0, 8)
-        : groups.slice(0, 8);
+        : all.slice(0, 8);
     }
-    const preferred = profile.preferredCategories;
-    if (!preferred.length) return [];
-    const filtered = all.filter(
-      (a) =>
-        preferred.includes(a.category) &&
-        (activeCategory === "All" || a.category === activeCategory),
-    );
-    return filtered.slice(0, 8);
-  }, [articles, isAuthenticated, profile, activeCategory]);
+    return all
+      .filter(
+        (a) =>
+          interests.includes(a.category) &&
+          (activeCategory === "All" || a.category === activeCategory),
+      )
+      .slice(0, 8);
+  }, [articles, profile, currentUser, activeCategory]);
 
-  const hasPreferences = (profile?.preferredCategories?.length ?? 0) > 0;
+  const hasPreferences = (profile?.interests?.length ?? 0) > 0;
 
   return (
     <Layout
       activeCategory={activeCategory}
       onCategoryChange={setActiveCategory}
     >
-      {/* ── Hero ──────────────────────────────────────────── */}
+      {/* ── Hero ── */}
       <section
         className="bg-card border-b border-border/40 px-4 sm:px-6 pt-6 pb-4"
         data-ocid="hero.section"
@@ -420,7 +354,7 @@ export function ArticleBrowserPage() {
         ) : null}
       </section>
 
-      {/* ── Category filter strip ─────────────────────────── */}
+      {/* ── Category strip ── */}
       <div
         className="sticky top-14 z-30 bg-card/95 backdrop-blur-sm border-b border-border/40 px-4 sm:px-6 py-3"
         data-ocid="category_strip.section"
@@ -428,100 +362,45 @@ export function ArticleBrowserPage() {
         <CategoryStrip active={activeCategory} onChange={setActiveCategory} />
       </div>
 
-      {/* ── Page body ─────────────────────────────────────── */}
       <div className="px-4 sm:px-6 py-8 flex flex-col gap-12">
-        {/* ── Section 1: Recommended for You ─────────────── */}
+        {/* Recommended for You */}
         <section data-ocid="recommendations.section">
           <SectionHeader
             icon={Sparkles}
             title="Recommended for You"
-            count={
-              recommendations.length ||
-              (isAuthenticated ? 0 : popularFallback.length)
-            }
+            count={filteredRecs.length}
             ocid="recommendations.header"
           />
-
           {recsLoading || articlesLoading ? (
             <CardGridSkeleton count={8} />
-          ) : isAuthenticated ? (
-            recommendations.length > 0 ? (
-              <ArticleGrid
-                articles={recommendations}
-                ocid="recommendations.list"
-              />
-            ) : (
-              <EmptyState
-                icon={BookOpen}
-                headline="Read some articles to get personalized picks"
-                sub="Your recommendation engine learns from every article you open. Start exploring to see tailored suggestions here."
-                ocid="recommendations.empty_state"
-                cta={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 border-accent/40 text-accent hover:bg-accent/10"
-                    onClick={() => {
-                      document
-                        .getElementById("trending-section")
-                        ?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    data-ocid="recommendations.browse_button"
-                  >
-                    <Flame className="h-3.5 w-3.5" />
-                    Browse Trending
-                  </Button>
-                }
-              />
-            )
+          ) : filteredRecs.length > 0 ? (
+            <ArticleGrid articles={filteredRecs} ocid="recommendations.list" />
           ) : (
-            /* Anonymous: sign-in prompt + popular articles */
-            <div className="flex flex-col gap-6">
-              <div
-                className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5 bg-accent/5 border border-accent/20 rounded-xl"
-                data-ocid="recommendations.signin_prompt"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-accent/15 border border-accent/30 shrink-0">
-                    <Users className="h-5 w-5 text-accent" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      Get personalized recommendations
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Sign in to unlock AI-powered picks tailored to your
-                      reading habits.
-                    </p>
-                  </div>
-                </div>
+            <EmptyState
+              icon={BookOpen}
+              headline="Keep reading to get personalized picks"
+              sub="Your recommendation engine learns from every article you open. Start exploring to see tailored suggestions."
+              ocid="recommendations.empty_state"
+              cta={
                 <Button
+                  variant="outline"
                   size="sm"
-                  onClick={login}
-                  className="shrink-0 gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
-                  data-ocid="recommendations.login_button"
+                  className="gap-2 border-accent/40 text-accent hover:bg-accent/10"
+                  onClick={() =>
+                    document
+                      .getElementById("trending-section")
+                      ?.scrollIntoView({ behavior: "smooth" })
+                  }
+                  data-ocid="recommendations.browse_button"
                 >
-                  <LogIn className="h-3.5 w-3.5" />
-                  Sign In
+                  <Flame className="h-3.5 w-3.5" /> Browse Trending
                 </Button>
-              </div>
-
-              {popularFallback.length > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground font-mono mb-4 uppercase tracking-wider">
-                    Popular right now
-                  </p>
-                  <ArticleGrid
-                    articles={popularFallback}
-                    ocid="recommendations.popular_list"
-                  />
-                </div>
-              )}
-            </div>
+              }
+            />
           )}
         </section>
 
-        {/* ── Section 2: Trending Now ─────────────────────── */}
+        {/* Trending Now */}
         <section
           id="trending-section"
           className="border-t border-border/30 pt-10"
@@ -533,7 +412,6 @@ export function ArticleBrowserPage() {
             count={trendingList.length}
             ocid="trending.header"
           />
-
           {trendingLoading ? (
             <CardGridSkeleton count={8} />
           ) : trendingList.length > 0 ? (
@@ -541,14 +419,14 @@ export function ArticleBrowserPage() {
           ) : (
             <EmptyState
               icon={Heart}
-              headline="Be the first to interact — start reading!"
-              sub="Trending articles are ranked by reader interactions. Open an article, like it, and watch it rise here."
+              headline="Start reading to see what's trending!"
+              sub="Trending articles are ranked by reader interactions."
               ocid="trending.empty_state"
             />
           )}
         </section>
 
-        {/* ── Section 3: Based on Your Interests ──────────── */}
+        {/* Based on Your Interests */}
         <section
           className="border-t border-border/30 pt-10"
           data-ocid="interests.section"
@@ -556,7 +434,7 @@ export function ArticleBrowserPage() {
           <SectionHeader
             icon={TrendingUp}
             title={
-              isAuthenticated && hasPreferences
+              hasPreferences
                 ? "Based on Your Interests"
                 : activeCategory !== "All"
                   ? `${activeCategory} Articles`
@@ -566,15 +444,13 @@ export function ArticleBrowserPage() {
             seeAllTo="/search"
             ocid="interests.header"
           />
-
           {articlesLoading ? (
             <CardGridSkeleton count={8} />
-          ) : isAuthenticated && !hasPreferences ? (
-            /* Auth but no preferences set */
+          ) : !hasPreferences ? (
             <EmptyState
               icon={Tag}
               headline="Select your interests to personalize this section"
-              sub="Tell us which topics matter to you. We'll curate a feed that matches what you love to read."
+              sub="Tell us which topics matter to you from your profile settings."
               ocid="interests.empty_state"
               cta={
                 <Button
@@ -585,8 +461,7 @@ export function ArticleBrowserPage() {
                   data-ocid="interests.set_preferences_button"
                 >
                   <Link to="/profile">
-                    <Settings className="h-3.5 w-3.5" />
-                    Set Preferences
+                    <Settings className="h-3.5 w-3.5" /> Set Preferences
                   </Link>
                 </Button>
               }
@@ -598,14 +473,10 @@ export function ArticleBrowserPage() {
               icon={Newspaper}
               headline={
                 activeCategory !== "All"
-                  ? `No articles found in "${activeCategory}"`
-                  : "No articles available yet"
+                  ? `No articles in "${activeCategory}"`
+                  : "No articles available"
               }
-              sub={
-                activeCategory !== "All"
-                  ? "Try a different category or check back soon for fresh content."
-                  : "Articles will appear here once they're published."
-              }
+              sub="Try a different category or check back soon."
               ocid="interests.empty_state"
               cta={
                 activeCategory !== "All" ? (

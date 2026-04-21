@@ -1,60 +1,48 @@
-import { createActor } from "@/backend";
-import type { Article, SearchEntry } from "@/types";
-import { useActor } from "@caffeineai/core-infrastructure";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useStore } from "@/lib/store";
+import type { Article } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyActor = any;
+function searchArticles(
+  articles: Article[],
+  query: string,
+  category?: string,
+): Article[] {
+  const q = query.toLowerCase().trim();
+  if (!q && !category) return articles;
+
+  return articles.filter((a) => {
+    const matchesQuery =
+      !q ||
+      a.title.toLowerCase().includes(q) ||
+      a.content.toLowerCase().includes(q) ||
+      a.tags.some((t) => t.toLowerCase().includes(q)) ||
+      a.author.toLowerCase().includes(q);
+
+    const matchesCategory =
+      !category || a.category.toLowerCase() === category.toLowerCase();
+
+    return matchesQuery && matchesCategory;
+  });
+}
 
 export function useSearch(query: string, category?: string) {
-  const { actor: rawActor, isFetching } = useActor(createActor);
-  const actor = rawActor as AnyActor;
-  const trimmed = query.trim();
-
   return useQuery<Article[]>({
-    queryKey: ["search", trimmed, category],
+    queryKey: ["search", query.trim(), category],
     queryFn: async () => {
-      if (!actor?.searchArticles || !trimmed) return [];
-      return actor.searchArticles(trimmed, category ?? null) as Promise<
-        Article[]
-      >;
+      const { articles } = useStore.getState();
+      return searchArticles(articles, query, category);
     },
-    enabled: !!actor && !isFetching && trimmed.length >= 2,
+    enabled: query.trim().length >= 1 || !!category,
     staleTime: 30_000,
   });
 }
 
 export function useSearchHistory() {
-  const { actor: rawActor, isFetching } = useActor(createActor);
-  const actor = rawActor as AnyActor;
-  const queryClient = useQueryClient();
-
-  const historyQuery = useQuery<SearchEntry[]>({
-    queryKey: ["searchHistory"],
-    queryFn: async () => {
-      if (!actor?.getSearchHistory) return [];
-      try {
-        return (await actor.getSearchHistory()) as SearchEntry[];
-      } catch {
-        return [];
-      }
-    },
-    enabled: !!actor && !isFetching,
-  });
-
-  const recordSearchMutation = useMutation({
-    mutationFn: async (q: string) => {
-      if (!actor?.recordSearch) return;
-      return actor.recordSearch(q);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["searchHistory"] });
-    },
-  });
+  const { searchHistory, recordSearch } = useStore();
 
   return {
-    history: historyQuery.data ?? [],
-    isLoading: historyQuery.isLoading,
-    recordSearch: recordSearchMutation.mutate,
+    history: searchHistory,
+    isLoading: false,
+    recordSearch,
   };
 }
